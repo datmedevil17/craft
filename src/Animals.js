@@ -1,19 +1,41 @@
 import React from 'react'
-import Animal from './Animal'
-
-const ANIMAL_TYPES = ['Cat', 'Dog', 'Sheep', 'Pig', 'Chick', 'Chicken', 'Horse', 'Wolf', 'Raccoon']
+import { Animal } from './Animal'
+import { useCubeStore } from './useStore'
 
 export const Animals = () => {
-    const animals = Array.from({ length: 40 }, (_, i) => ({
-        id: i,
-        type: ANIMAL_TYPES[Math.floor(Math.random() * ANIMAL_TYPES.length)],
-        position: [(Math.random() - 0.5) * 100, 5, (Math.random() - 0.5) * 100]
-    }))
+    const { animals: realmAnimals, isInRiver } = useCubeStore()
+
+    const spawnedAnimals = React.useMemo(() => {
+        if (!realmAnimals || realmAnimals.length === 0) return []
+
+        return Array.from({ length: 40 }, (_, i) => {
+            let pos
+            let attempts = 0
+            while (attempts < 10) {
+                const potentialPos = [(Math.random() - 0.5) * 120, 5, (Math.random() - 0.5) * 120]
+                const distFromSpawn = Math.sqrt(potentialPos[0] ** 2 + potentialPos[2] ** 2)
+                const inRiver = isInRiver(potentialPos[0], potentialPos[2])
+
+                if (distFromSpawn > 20 && !inRiver) {
+                    pos = potentialPos
+                    break
+                }
+                attempts++
+            }
+            if (!pos) pos = [30, 5, 30] // Fallback
+
+            return {
+                id: i,
+                type: realmAnimals[Math.floor(Math.random() * realmAnimals.length)],
+                position: pos
+            }
+        })
+    }, [realmAnimals])
 
     return (
         <group>
-            {animals.map((animal) => (
-                <Animal key={animal.id} type={animal.type} position={animal.position} />
+            {spawnedAnimals.map((animal) => (
+                <Animal key={`${animal.type}-${animal.id}`} type={animal.type} position={animal.position} />
             ))}
         </group>
     )

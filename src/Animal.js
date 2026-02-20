@@ -1,20 +1,41 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useGLTF, useAnimations } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
-import { RigidBody, CuboidCollider } from '@react-three/rapier'
+import { useFrame, useGraph } from '@react-three/fiber'
+import { RigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
+import { SkeletonUtils } from 'three-stdlib'
+import { useCubeStore } from './useStore'
+import { FloatingHealthBar } from "./FloatingHealthBar"
 
-export default function Animal({ type, position: initialPosition }) {
+export const Animal = ({ type, position: initialPosition }) => {
     const group = useRef()
     const rb = useRef()
-    const { nodes, animations } = useGLTF(`/models/Animals/${type}.gltf`)
+    const { scene, animations } = useGLTF(`/models/Animals/${type}.gltf`)
+    const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
     const { actions, names } = useAnimations(animations, group)
 
-    const [health, setHealth] = useState(3)
+    const damagePlayer = useCubeStore(state => state.damagePlayer)
+
+    const [health, setHealth] = useState(5)
     const [status, setStatus] = useState('alive') // 'alive', 'dying', 'dead'
     const [targetPosition, setTargetPosition] = useState(new THREE.Vector3(...initialPosition))
     const [moving, setMoving] = useState(false)
-    const [spawnPos, setSpawnPos] = useState(new THREE.Vector3(...initialPosition))
+    const [lastAttackTime, setLastAttackTime] = useState(1e9) // High initial value prevents immediate attack
+
+    // Animation mapping to fix "weird" actions
+    const animMap = useMemo(() => {
+        const mapping = {
+            Chick: { walk: 'Run', run: 'Run', idle: 'Idle', attack: 'Attack', eat: 'Idle_Peck' },
+            Chicken: { walk: 'Run', run: 'Run', idle: 'Idle', attack: 'Attack', eat: 'Idle_Peck' },
+            Pig: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Headbutt', eat: 'Idle_Eating' },
+            Sheep: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Headbutt', eat: 'Idle_Eating' },
+            Wolf: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' },
+            Dog: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' },
+            Cat: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' },
+            Raccoon: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' }
+        }
+        return mapping[type] || { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' }
+    }, [type])
 
     // Choose random target on ground
     const getNewTarget = useCallback((currentPos) => {
@@ -29,12 +50,11 @@ export default function Animal({ type, position: initialPosition }) {
     const respawn = useCallback(() => {
         const newPos = [
             (Math.random() - 0.5) * 50,
-            5, // Spawn slightly in air to show physics
+            5,
             (Math.random() - 0.5) * 50
         ]
-        setSpawnPos(new THREE.Vector3(...newPos))
         setTargetPosition(new THREE.Vector3(...newPos))
-        setHealth(3)
+        setHealth(5)
         setStatus('alive')
         setMoving(false)
         if (rb.current) {
@@ -55,18 +75,23 @@ export default function Animal({ type, position: initialPosition }) {
             return newHealth
         })
 
-        // Apply a little knockback
+        // Play a quick "hit" animation if available
+        const hitAnim = actions[animMap.attack] || actions.Attack || actions.Headbutt
+        if (hitAnim) {
+            hitAnim.reset().fadeIn(0.1).setDuration(0.5).play()
+        }
+
+        // Apply knockback
         if (rb.current) {
-            const impulse = { x: (Math.random() - 0.5) * 5, y: 5, z: (Math.random() - 0.5) * 5 }
+            const impulse = { x: (Math.random() - 0.5) * 5, y: 0, z: (Math.random() - 0.5) * 5 }
             rb.current.applyImpulse(impulse, true)
         }
-    }, [status])
+    }, [status, actions, animMap])
 
     useEffect(() => {
         if (status === 'dying') {
             const deathAnim = actions.Death || names.find(n => n.toLowerCase().includes('death') || n.toLowerCase().includes('die'))
             if (deathAnim) {
-                // Stop all other animations
                 Object.values(actions).forEach(action => action.fadeOut(0.2))
                 const anim = typeof deathAnim === 'string' ? actions[deathAnim] : deathAnim
                 anim.reset().fadeIn(0.2).play()
@@ -74,10 +99,8 @@ export default function Animal({ type, position: initialPosition }) {
                 anim.setLoop(THREE.LoopOnce)
             }
 
-            // Wait 3 seconds then die (disappear)
             const timeout = setTimeout(() => {
                 setStatus('dead')
-                // Wait another short bit then respawn
                 setTimeout(respawn, 1000)
             }, 3000)
             return () => clearTimeout(timeout)
@@ -87,14 +110,13 @@ export default function Animal({ type, position: initialPosition }) {
     useEffect(() => {
         if (status !== 'alive') return
 
-        // Start with a sensible initial animation
-        const initialAnim = names.find(n => ['Walk', 'Run', 'Idle'].includes(n)) || names[0]
-        if (actions[initialAnim]) {
-            actions[initialAnim].play()
-        }
+        // Start with idle
+        const idleAnim = actions[animMap.idle] || actions.Idle || Object.values(actions)[0]
+        if (idleAnim) idleAnim.play()
 
-        // Periodically change target
         const interval = setInterval(() => {
+            if (type === 'Wolf' || type === 'Dog' || type === 'Raccoon') return
+
             if (Math.random() > 0.7 && rb.current) {
                 const currentPos = rb.current.translation()
                 setTargetPosition(getNewTarget(currentPos))
@@ -105,50 +127,76 @@ export default function Animal({ type, position: initialPosition }) {
         }, 3000)
 
         return () => clearInterval(interval)
-    }, [actions, names, getNewTarget, status])
+    }, [actions, names, getNewTarget, status, type, animMap])
 
     useFrame((state, delta) => {
         if (status !== 'alive' || !rb.current || !group.current) return
 
         const currentPos = new THREE.Vector3().copy(rb.current.translation())
+        const playerPos = state.camera.position
+        const distToPlayer = currentPos.distanceTo(playerPos)
+
+        const isHostile = type === 'Wolf' || type === 'Dog' || type === 'Raccoon'
+
+        if (isHostile && distToPlayer < 15) {
+            if (distToPlayer > 1.8) {
+                // Chase
+                const dir = playerPos.clone().sub(currentPos).normalize()
+                dir.y = 0
+                const velocity = rb.current.linvel()
+                rb.current.setLinvel({ x: dir.x * 5, y: velocity.y, z: dir.z * 5 }, true)
+
+                // Rotate
+                const lookAtRotation = new THREE.Matrix4().lookAt(playerPos, currentPos, new THREE.Vector3(0, 1, 0))
+                const q = new THREE.Quaternion().setFromRotationMatrix(lookAtRotation)
+                group.current.quaternion.slerp(q, 0.1)
+
+                // Animation
+                const moveAnim = actions[animMap.run] || actions.Run || actions.Walk
+                if (moveAnim && !moveAnim.isRunning()) {
+                    Object.values(actions).forEach(a => a !== moveAnim && a.fadeOut(0.2))
+                    moveAnim.reset().fadeIn(0.2).play()
+                }
+            } else {
+                // Attack Player
+                const now = state.clock.getElapsedTime()
+                if (now - lastAttackTime > 1.5) {
+                    damagePlayer(10)
+                    setLastAttackTime(now)
+                    const attackAnim = actions[animMap.attack] || actions.Attack || actions.Headbutt
+                    if (attackAnim) {
+                        attackAnim.reset().fadeIn(0.1).play()
+                    }
+                }
+                rb.current.setLinvel({ x: 0, y: rb.current.linvel().y, z: 0 }, true)
+            }
+            return
+        }
+
+        // Normal Passive Animal logic
         const dist = currentPos.distanceTo(targetPosition)
-
-        if (moving && dist > 0.5) {
-            // Move towards target using velocity
+        if (moving && dist > 1.0) {
             const dir = targetPosition.clone().sub(currentPos).normalize()
-            dir.y = 0 // Keep movement on horizontal plane
-
+            dir.y = 0
             const velocity = rb.current.linvel()
-            rb.current.setLinvel({
-                x: dir.x * 3,
-                y: velocity.y,
-                z: dir.z * 3
-            }, true)
-
-            // Rotate towards target
+            rb.current.setLinvel({ x: dir.x * 3, y: velocity.y, z: dir.z * 3 }, true)
             const lookAtRotation = new THREE.Matrix4().lookAt(targetPosition, currentPos, new THREE.Vector3(0, 1, 0))
             const q = new THREE.Quaternion().setFromRotationMatrix(lookAtRotation)
             group.current.quaternion.slerp(q, 0.1)
 
-            // Animation switching
-            const moveAnim = actions.Walk || actions.Run
+            const moveAnim = actions[animMap.walk] || actions.Walk || actions.Run
             if (moveAnim && !moveAnim.isRunning()) {
-                actions.Idle?.fadeOut(0.2)
-                actions.Idle_Peck?.fadeOut(0.2)
-                actions.Idle_Eating?.fadeOut(0.2)
+                Object.values(actions).forEach(a => a !== moveAnim && a.fadeOut(0.2))
                 moveAnim.reset().fadeIn(0.2).play()
             }
         } else {
             setMoving(false)
-            // Stop horizontal movement
-            const velocity = rb.current.linvel()
-            rb.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true)
+            rb.current.setLinvel({ x: 0, y: rb.current.linvel().y, z: 0 }, true)
 
-            // Switch to Idle
-            const idleAnim = actions.Idle || actions.Idle_Peck || actions.Idle_Eating
+            // Randomly eat if idle
+            const idleAnim = (Math.random() > 0.5 && actions[animMap.eat]) ? actions[animMap.eat] : (actions[animMap.idle] || actions.Idle)
             if (idleAnim && !idleAnim.isRunning()) {
-                actions.Walk?.fadeOut(0.2)
-                actions.Run?.fadeOut(0.2)
+                Object.values(actions).forEach(a => a !== idleAnim && a.fadeOut(0.2))
                 idleAnim.reset().fadeIn(0.2).play()
             }
         }
@@ -159,16 +207,17 @@ export default function Animal({ type, position: initialPosition }) {
     return (
         <RigidBody
             ref={rb}
-            position={initialPosition}
-            colliders={false}
+            name="Animal"
             type="dynamic"
-            enabledRotations={[false, false, false]}
+            position={initialPosition}
+            colliders="cuboid"
+            lockRotations
+            onClick={handleAttack}
         >
-            <group ref={group} dispose={null} scale={0.5} onClick={handleAttack}>
-                <primitive object={nodes.AnimalArmature || nodes.Root || Object.values(nodes)[0]} />
+            <group ref={group} dispose={null} scale={0.5}>
+                <primitive object={clone} />
             </group>
-            {/* Rough collider for animals */}
-            <CuboidCollider args={[0.4, 0.4, 0.4]} position={[0, 0.4, 0]} />
+            <FloatingHealthBar health={health} maxHealth={5} position={[0, 1.5, 0]} />
         </RigidBody>
     )
 }

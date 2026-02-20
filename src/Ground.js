@@ -1,30 +1,52 @@
-import * as THREE from "three"
+import React from "react"
 import { useTexture } from "@react-three/drei"
-import { CuboidCollider, RigidBody } from "@react-three/rapier"
-import grass from "./assets/grass.jpg"
-import { useCubeStore } from "./useStore"
+import { RigidBody } from "@react-three/rapier"
+import * as THREE from "three"
+import { useCubeStore, REALM_CONFIG } from "./useStore"
 
-export function Ground(props) {
-  const texture = useTexture(grass)
+// Import textures for webpack to handle correctly
+import grassJpg from "./assets/grass.jpg"
+import dirtJpg from "./assets/dirt.jpg"
+
+export const Ground = (props) => {
+  const { realm } = useCubeStore()
+  const config = REALM_CONFIG[realm]
+
+  // Use imported textures
+  const grass = useTexture(grassJpg)
+  const dirt = useTexture(dirtJpg)
+
+  // Configure texture wrapping
+  const texture = realm === "Jungle" ? grass : (realm === "Desert" ? dirt : null)
+
+  if (texture) {
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(240, 240)
+  }
+
   const addCube = useCubeStore((state) => state.addCube)
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+
   return (
-    <RigidBody {...props} type="fixed" colliders={false}>
+    <RigidBody {...props} type="fixed" colliders="cuboid">
       <mesh
         receiveShadow
-        position={[0, 0, 0]}
-        rotation-x={-Math.PI / 2}
+        rotation={[-Math.PI / 2, 0, 0]}
         onClick={(e) => {
-          e.stopPropagation()
-          if (e.button === 2) { // Right click to add
-            const { x, y, z } = e.point
-            addCube(Math.round(x), y + 0.5, Math.round(z))
+          if (e.button === 2) { // Only Right-Click to place a block
+            e.stopPropagation()
+            const { x, z } = e.point
+            addCube(Math.floor(x) + 0.5, 0.5, Math.floor(z) + 0.5)
           }
-        }}>
+          // Left-click: do NOT stopPropagation — let it reach animals/enemies
+        }}
+      >
         <planeGeometry args={[1000, 1000]} />
-        <meshStandardMaterial map={texture} map-repeat={[240, 240]} color="green" />
+        <meshStandardMaterial
+          map={texture}
+          color={config.groundColor}
+          roughness={0.8}
+        />
       </mesh>
-      <CuboidCollider args={[1000, 2, 1000]} position={[0, -2, 0]} />
     </RigidBody>
   )
 }

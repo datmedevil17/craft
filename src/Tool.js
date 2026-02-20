@@ -11,8 +11,8 @@ export default function Tool(props) {
     const mesh = nodes[meshName]
 
     return (
-        <group dispose={null} {...props}>
-            <group rotation={[0, Math.PI / 1.8, 0.2]} scale={0.4}>
+        <group dispose={null} {...props} pointerEvents="none">
+            <group rotation={[0, Math.PI / 1.8 + Math.PI, 0.2]} scale={0.4}>
                 <mesh geometry={mesh.geometry} material={materials.Atlas} />
             </group>
         </group>

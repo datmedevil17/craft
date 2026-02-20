@@ -1,16 +1,57 @@
+import React, { Suspense } from "react"
 import { Canvas } from "@react-three/fiber"
 import { Sky, PointerLockControls, KeyboardControls } from "@react-three/drei"
 import { Physics } from "@react-three/rapier"
 import { Ground } from "./Ground"
 import { Player } from "./Player"
-import { Cube, Cubes } from "./Cube"
+import { Cubes } from "./Cube"
 import { UI } from "./UI"
 import { Animals } from "./Animals"
+import { NPCs } from "./NPCs"
+import { Environment } from "./Environment"
+import { Enemies } from "./Enemies"
+import { Sun } from "./Sun"
+import { Atmosphere } from "./Atmosphere"
 import { SolanaProvider } from "./SolanaProvider"
+import { useCubeStore } from "./useStore"
 
-// The original was made by Maksim Ivanow: https://www.youtube.com/watch?v=Lc2JvBXMesY&t=124s
-// This demo needs pointer-lock, that works only if you open it in a new window
-// Controls: WASD + left click
+function Game() {
+  const gameStarted = useCubeStore((state) => state.gameStarted)
+  const isGameOver = useCubeStore((state) => state.isGameOver)
+
+  return (
+    <>
+      <Sky sunPosition={[100, 80, 100]} />
+      <Sun />
+      <Atmosphere />
+      <ambientLight intensity={0.4} />
+      <directionalLight
+        castShadow
+        intensity={1.5}
+        position={[100, 80, 100]}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-100}
+        shadow-camera-right={100}
+        shadow-camera-top={100}
+        shadow-camera-bottom={-100}
+      />
+      <Physics gravity={[0, -30, 0]}>
+        <Ground />
+        <Cubes />
+        {gameStarted && (
+          <>
+            <Player />
+            <Animals />
+            <NPCs />
+            <Enemies />
+            <Environment />
+          </>
+        )}
+      </Physics>
+      {gameStarted && !isGameOver && <PointerLockControls />}
+    </>
+  )
+}
 
 export default function App() {
   return (
@@ -24,17 +65,9 @@ export default function App() {
           { name: "jump", keys: ["Space"] },
         ]}>
         <Canvas shadows camera={{ fov: 45 }}>
-          <Sky sunPosition={[100, 20, 100]} />
-          <ambientLight intensity={0.3} />
-          <pointLight castShadow intensity={0.8} position={[100, 100, 100]} />
-          <Physics gravity={[0, -30, 0]}>
-            <Ground />
-            <Player />
-            <Cube position={[0, 0.5, -10]} type="Block_Stone" />
-            <Cubes />
-            <Animals />
-          </Physics>
-          <PointerLockControls />
+          <Suspense fallback={null}>
+            <Game />
+          </Suspense>
         </Canvas>
         <UI />
       </KeyboardControls>
