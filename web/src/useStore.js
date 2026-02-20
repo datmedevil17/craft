@@ -39,6 +39,21 @@ export const useCubeStore = create((set) => ({
     playerHealth: 100,
     isGameOver: false,
     invincible: false,
+    blockchainActions: {
+        placeBlock: (type) => { console.log("Blockchain placeholder: placeBlock", type) },
+        attack: (target, damage) => { console.log("Blockchain placeholder: attack", target, damage) },
+        killEntity: (type, reward) => { console.log("Blockchain placeholder: killEntity", type, reward) },
+        enterGame: (realm) => { console.log("Blockchain placeholder: enterGame", realm) }
+    },
+
+    // ── TX Toasts ─────────────────────────────────────────────────────────────
+    toasts: [],
+    addToast: (hash, label) => set((state) => ({
+        toasts: [...state.toasts, { id: Date.now() + Math.random(), hash, label }]
+    })),
+    removeToast: (id) => set((state) => ({
+        toasts: state.toasts.filter((t) => t.id !== id)
+    })),
     cubes: [],
     addCube: (x, y, z, type) => set((state) => ({
         cubes: [...state.cubes, { pos: [x, y, z], type: type || state.currentBlock, realm: state.realm }]
@@ -56,6 +71,10 @@ export const useCubeStore = create((set) => ({
     blocks: [],
     animals: [],
     enemies: [],
+    showStatsModal: false,
+    setShowStatsModal: (show) => set({ showStatsModal: show }),
+    showUndelegatePrompt: false,
+    setShowUndelegatePrompt: (show) => set({ showUndelegatePrompt: show }),
 
     startGame: (realm) => {
         const config = REALM_CONFIG[realm]
@@ -88,8 +107,11 @@ export const useCubeStore = create((set) => ({
     }),
     healPlayer: (amount) => set((state) => ({ playerHealth: Math.min(100, state.playerHealth + amount) })),
     restartGame: () => {
-        set({ gameStarted: false, isGameOver: false, playerHealth: 100, invincible: true })
+        set({ gameStarted: false, isGameOver: false, playerHealth: 100, invincible: true, showUndelegatePrompt: false })
         setTimeout(() => set({ invincible: false }), 3000)
+    },
+    endGame: () => {
+        set({ gameStarted: false, showUndelegatePrompt: true })
     },
 
     setTool: (tool) => set({ currentTool: tool }),

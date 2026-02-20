@@ -24,7 +24,7 @@ export const Ground = (props) => {
     texture.repeat.set(240, 240)
   }
 
-  const addCube = useCubeStore((state) => state.addCube)
+  const { addCube, blockchainActions, currentBlock } = useCubeStore()
 
   return (
     <RigidBody {...props} type="fixed" colliders="cuboid">
@@ -36,6 +36,7 @@ export const Ground = (props) => {
             e.stopPropagation()
             const { x, z } = e.point
             addCube(Math.floor(x) + 0.5, 0.5, Math.floor(z) + 0.5)
+            blockchainActions.placeBlock(currentBlock)
           }
           // Left-click: do NOT stopPropagation — let it reach animals/enemies
         }}

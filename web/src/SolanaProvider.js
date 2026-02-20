@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
 
@@ -13,17 +13,20 @@ export const SolanaProvider = ({ children }) => {
     const network = WalletAdapterNetwork.Devnet;
 
     // You can also provide a custom RPC endpoint.
-    const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+    const endpoint = "https://devnet.helius-rpc.com/?api-key=9ca29b35-645b-47ec-8787-af25bc43be2c";
 
     const wallets = useMemo(
-        () => [
-            new PhantomWalletAdapter(),
-        ],
+        () => [],
         []
     );
 
+    const config = useMemo(() => ({
+        commitment: 'confirmed',
+        wsEndpoint: "wss://api.devnet.solana.com"
+    }), []);
+
     return (
-        <ConnectionProvider endpoint={endpoint}>
+        <ConnectionProvider endpoint={endpoint} config={config}>
             <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
                     {children}

@@ -14,7 +14,10 @@ export const Animal = ({ type, position: initialPosition }) => {
     const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
     const { actions, names } = useAnimations(animations, group)
 
-    const damagePlayer = useCubeStore(state => state.damagePlayer)
+    const { damagePlayer, blockchainActions } = useCubeStore(state => ({
+        damagePlayer: state.damagePlayer,
+        blockchainActions: state.blockchainActions
+    }))
 
     const [health, setHealth] = useState(5)
     const [status, setStatus] = useState('alive') // 'alive', 'dying', 'dead'
@@ -71,6 +74,9 @@ export const Animal = ({ type, position: initialPosition }) => {
             const newHealth = prev - 1
             if (newHealth <= 0) {
                 setStatus('dying')
+                blockchainActions.killEntity(type)
+            } else {
+                blockchainActions.attack(type, 1)
             }
             return newHealth
         })

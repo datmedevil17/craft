@@ -7,7 +7,7 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 // Devnet RPC endpoint
-const DEVNET_ENDPOINT = "https://api.devnet.solana.com";
+const DEVNET_ENDPOINT = "https://devnet.helius-rpc.com/?api-key=9ca29b35-645b-47ec-8787-af25bc43be2c";
 
 interface WalletProviderProps {
     children: ReactNode;
@@ -18,17 +18,15 @@ interface WalletProviderProps {
  * Configured for Devnet by default.
  */
 export function WalletProvider({ children }: WalletProviderProps) {
-    // Convert HTTP endpoint to WebSocket endpoint for subscriptions
-    const wsEndpoint = useMemo(() => {
-        return DEVNET_ENDPOINT.replace("https://", "wss://");
-    }, []);
+    // Use a stable public WebSocket endpoint for Devnet
+    const DEVNET_WS_ENDPOINT = "wss://api.devnet.solana.com";
 
     const config = useMemo(
         () => ({
-            wsEndpoint,
+            wsEndpoint: DEVNET_WS_ENDPOINT,
             commitment: "confirmed" as const,
         }),
-        [wsEndpoint]
+        []
     );
 
     return (

@@ -14,7 +14,7 @@ export const Cubes = () => {
 export function Cube({ position, type, ...props }) {
   const ref = useRef()
   const [hover, set] = useState(null)
-  const { addCube, removeCube, currentTool } = useCubeStore()
+  const { addCube, removeCube, currentTool, blockchainActions, currentBlock } = useCubeStore()
   const [clicks, setClicks] = useState(0)
   const { getRequiredClicks } = require("./miningConfig")
   const requiredClicks = getRequiredClicks(type, currentTool)
@@ -44,6 +44,7 @@ export function Cube({ position, type, ...props }) {
       // Use the face normal to determine the neighbor position
       const { x: nx, y: ny, z: nz } = e.face.normal
       addCube(x + nx, y + ny, z + nz)
+      blockchainActions.placeBlock(currentBlock)
     }
   }, [addCube, removeCube, position, requiredClicks])
 

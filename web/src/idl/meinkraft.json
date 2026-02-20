@@ -1,0 +1,1105 @@
+{
+  "address": "A8qoTZrfzgBCPADBwGQJxva9ymsUkYEnSXXtUik7HvoQ",
+  "metadata": {
+    "name": "meinkraft",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "attack",
+      "docs": [
+        "Record an attack event (player hits an entity).",
+        "Each swing is one tx on the ER."
+      ],
+      "discriminator": [
+        197,
+        26,
+        63,
+        242,
+        77,
+        247,
+        101,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "game_session",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "session_token",
+          "docs": [
+            "Session token allows a delegated key to sign on behalf of the player."
+          ],
+          "optional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "target_type",
+          "type": "string"
+        },
+        {
+          "name": "damage",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "commit_session",
+      "docs": [
+        "Manual commit — persists current ER state to the base layer mid-session",
+        "(optional checkpoint, does NOT end the session or undelegate)."
+      ],
+      "discriminator": [
+        75,
+        2,
+        56,
+        144,
+        89,
+        208,
+        173,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "game_session",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "magic_program",
+          "address": "Magic11111111111111111111111111111111111111"
+        },
+        {
+          "name": "magic_context",
+          "writable": true,
+          "address": "MagicContext1111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "delegate_session",
+      "docs": [
+        "Delegate the GameSession PDA to the MagicBlock Ephemeral Rollup.",
+        "Must be called on the BASE LAYER before starting a game session.",
+        "The `#[delegate]` macro injects the delegation infrastructure accounts."
+      ],
+      "discriminator": [
+        82,
+        83,
+        119,
+        119,
+        196,
+        219,
+        5,
+        197
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "buffer_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                135,
+                187,
+                109,
+                110,
+                141,
+                118,
+                103,
+                206,
+                87,
+                218,
+                207,
+                178,
+                26,
+                122,
+                137,
+                49,
+                113,
+                201,
+                76,
+                51,
+                237,
+                29,
+                217,
+                13,
+                143,
+                154,
+                5,
+                176,
+                14,
+                134,
+                64,
+                119
+              ]
+            }
+          }
+        },
+        {
+          "name": "delegation_record_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "delegation_metadata_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner_program",
+          "address": "A8qoTZrfzgBCPADBwGQJxva9ymsUkYEnSXXtUik7HvoQ"
+        },
+        {
+          "name": "delegation_program",
+          "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "end_game",
+      "docs": [
+        "End the active game session.",
+        "Marks session inactive so it can be undelegated safely."
+      ],
+      "discriminator": [
+        224,
+        135,
+        245,
+        99,
+        67,
+        175,
+        121,
+        252
+      ],
+      "accounts": [
+        {
+          "name": "game_session",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "session_token",
+          "docs": [
+            "Session token allows a delegated key to sign on behalf of the player."
+          ],
+          "optional": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "enter_game",
+      "docs": [
+        "Start a game session.",
+        "Resets session counters and marks session as active.",
+        "Called on the ER after delegation."
+      ],
+      "discriminator": [
+        157,
+        184,
+        173,
+        203,
+        193,
+        117,
+        106,
+        66
+      ],
+      "accounts": [
+        {
+          "name": "game_session",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "session_token",
+          "docs": [
+            "Session token allows a delegated key to sign on behalf of the player."
+          ],
+          "optional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "realm",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "initialize_profile",
+      "docs": [
+        "Create the player's persistent profile.",
+        "Seeds: [b\"profile\", authority]"
+      ],
+      "discriminator": [
+        32,
+        145,
+        77,
+        213,
+        58,
+        39,
+        251,
+        234
+      ],
+      "accounts": [
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "kill_entity",
+      "docs": [
+        "Record an entity kill (animal or enemy).",
+        "Called when an entity's health reaches zero."
+      ],
+      "discriminator": [
+        169,
+        200,
+        135,
+        58,
+        71,
+        150,
+        207,
+        238
+      ],
+      "accounts": [
+        {
+          "name": "game_session",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "session_token",
+          "docs": [
+            "Session token allows a delegated key to sign on behalf of the player."
+          ],
+          "optional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "entity_type",
+          "type": "string"
+        },
+        {
+          "name": "score_reward",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "place_block",
+      "docs": [
+        "Record a block placement event.",
+        "Each call is one tx on the ER (cheap, fast, gasless for the player)."
+      ],
+      "discriminator": [
+        184,
+        154,
+        18,
+        192,
+        205,
+        185,
+        38,
+        139
+      ],
+      "accounts": [
+        {
+          "name": "game_session",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.authority",
+                "account": "PlayerProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "session_token",
+          "docs": [
+            "Session token allows a delegated key to sign on behalf of the player."
+          ],
+          "optional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "block_type",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "process_undelegation",
+      "discriminator": [
+        196,
+        28,
+        41,
+        206,
+        48,
+        37,
+        51,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "base_account",
+          "writable": true
+        },
+        {
+          "name": "buffer"
+        },
+        {
+          "name": "payer",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "account_seeds",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "undelegate_session",
+      "docs": [
+        "Undelegate the GameSession PDA from the ER and commit final state.",
+        "Must be called on the EPHEMERAL ROLLUP to settle scores back to base."
+      ],
+      "discriminator": [
+        110,
+        234,
+        80,
+        245,
+        77,
+        79,
+        58,
+        116
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "game_session",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "magic_program",
+          "address": "Magic11111111111111111111111111111111111111"
+        },
+        {
+          "name": "magic_context",
+          "writable": true,
+          "address": "MagicContext1111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GameSession",
+      "discriminator": [
+        150,
+        116,
+        20,
+        197,
+        205,
+        121,
+        220,
+        240
+      ]
+    },
+    {
+      "name": "PlayerProfile",
+      "discriminator": [
+        82,
+        226,
+        99,
+        87,
+        164,
+        130,
+        181,
+        80
+      ]
+    },
+    {
+      "name": "SessionToken",
+      "discriminator": [
+        233,
+        4,
+        115,
+        14,
+        46,
+        21,
+        1,
+        15
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NoActiveSession",
+      "msg": "No active session — call enter_game first"
+    },
+    {
+      "code": 6001,
+      "name": "SessionAlreadyActive",
+      "msg": "Session already active — call end_game before starting a new one"
+    },
+    {
+      "code": 6002,
+      "name": "SessionStillActive",
+      "msg": "Session is still active — call end_game before undelegating"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidRealm",
+      "msg": "Invalid realm name"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidAuth",
+      "msg": "Invalid authentication"
+    }
+  ],
+  "types": [
+    {
+      "name": "GameSession",
+      "docs": [
+        "Ephemeral session state — delegated to ER for the duration of a game.",
+        "Settled back to base layer via commit_and_undelegate after each session."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "Owner of this session."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "realm",
+            "docs": [
+              "Active realm (\"Jungle\" | \"Desert\" | \"Snow\")."
+            ],
+            "type": "string"
+          },
+          {
+            "name": "blocks_placed",
+            "docs": [
+              "Blocks placed this session."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "attacks",
+            "docs": [
+              "Attacks made this session."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "kills",
+            "docs": [
+              "Entities killed this session."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "score",
+            "docs": [
+              "Score accumulated this session."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "active",
+            "docs": [
+              "Whether a game is currently in progress."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PlayerProfile",
+      "docs": [
+        "Persistent player profile — lives on the base layer forever."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "The wallet that owns this profile."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "total_blocks_placed",
+            "docs": [
+              "Cumulative blocks placed across all sessions."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_attacks",
+            "docs": [
+              "Cumulative attacks across all sessions."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_kills",
+            "docs": [
+              "Cumulative entity kills across all sessions."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_score",
+            "docs": [
+              "Cumulative score across all sessions."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "games_played",
+            "docs": [
+              "Number of completed games."
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SessionToken",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "target_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "session_signer",
+            "type": "pubkey"
+          },
+          {
+            "name": "valid_until",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}

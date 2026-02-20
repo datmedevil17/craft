@@ -15,7 +15,10 @@ export default function Enemy({ type, position: initialPosition }) {
     const { nodes } = useGraph(clone)
     const { actions, names } = useAnimations(animations, group)
 
-    const damagePlayer = useCubeStore(state => state.damagePlayer)
+    const { damagePlayer, blockchainActions } = useCubeStore(state => ({
+        damagePlayer: state.damagePlayer,
+        blockchainActions: state.blockchainActions
+    }))
 
     const maxHealth = type === 'Giant' || type === 'Yeti' ? 20 : 5
     const [health, setHealth] = useState(maxHealth)
@@ -44,6 +47,9 @@ export default function Enemy({ type, position: initialPosition }) {
             const newHealth = prev - 1
             if (newHealth <= 0) {
                 setStatus('dying')
+                blockchainActions.killEntity(type)
+            } else {
+                blockchainActions.attack(type, 1)
             }
             return newHealth
         })

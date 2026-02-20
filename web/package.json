@@ -4,6 +4,8 @@
   "private": true,
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",
+    "@magicblock-labs/ephemeral-rollups-sdk": "^0.8.5",
+    "@magicblock-labs/gum-react-sdk": "^3.0.10",
     "@pmndrs/branding": "0.0.8",
     "@react-three/drei": "9.34.4",
     "@react-three/fiber": "8.8.10",

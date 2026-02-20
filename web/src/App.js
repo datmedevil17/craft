@@ -14,6 +14,7 @@ import { Sun } from "./Sun"
 import { Atmosphere } from "./Atmosphere"
 import { SolanaProvider } from "./SolanaProvider"
 import { useCubeStore } from "./useStore"
+import { TxToast } from "./TxToast"
 
 function Game() {
   const gameStarted = useCubeStore((state) => state.gameStarted)
@@ -70,6 +71,7 @@ export default function App() {
           </Suspense>
         </Canvas>
         <UI />
+        <TxToast />
       </KeyboardControls>
     </SolanaProvider>
   )
