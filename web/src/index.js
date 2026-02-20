@@ -15,7 +15,7 @@ function Overlay() {
         </div>
         {/* <Foo wilter date="26. July" year="2023" /> */}
         <h1 className="absolute top-10 text-8xl font-extrabold text-gray-900 " style={{ fontFamily: "MyFont" }}>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r to-[#a89e9d] from-[#5df54a]">Meinkraft - Alpha</span>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r to-[#a89e9d] from-[#5df54a]">MagicCraft - Alpha</span>
         </h1>
         <footer className=" rounded-lg shadow  absolute bottom-0 w-full" style={{ fontFamily: "MyFont" }}>
           <div className="w-full max-w-screen-xl mx-auto p-4 md:py-8">

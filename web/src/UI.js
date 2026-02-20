@@ -32,6 +32,7 @@ export const UI = () => {
         delegateSession,
         undelegateSession,
         enterGame,
+        endGame,
         placeBlock,
         attack,
         killEntity,
@@ -159,7 +160,7 @@ export const UI = () => {
                 <h1 style={{
                     fontSize: "52px", marginBottom: "10px", color: "#fff",
                     textShadow: "0 0 20px rgba(74,144,226,0.8)", letterSpacing: "4px", fontWeight: "900"
-                }}>MEINKRAFT</h1>
+                }}>MAGICCRAFT</h1>
 
                 {/* Onboarding Steps */}
                 <div style={{ display: "flex", gap: "10px", marginBottom: "40px", marginTop: "20px" }}>
