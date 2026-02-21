@@ -175,6 +175,39 @@ export type Meinkraft = {
           }
         },
         {
+          "name": "mintAuthority",
+          "docs": [
+            "Seeds: [b\"mint_authority\"]"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
           "name": "magicProgram",
           "address": "Magic11111111111111111111111111111111111111"
         },
@@ -821,7 +854,7 @@ export type Meinkraft = {
       "name": "undelegateSession",
       "docs": [
         "Undelegate the GameSession PDA from the ER and commit final state.",
-        "Must be called on the EPHEMERAL ROLLUP to settle scores back to base."
+        "Must be called on the BASE LAYER to settle scores back to base."
       ],
       "discriminator": [
         110,
@@ -886,6 +919,39 @@ export type Meinkraft = {
               }
             ]
           }
+        },
+        {
+          "name": "mintAuthority",
+          "docs": [
+            "Seeds: [b\"mint_authority\"]"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
           "name": "magicProgram",
@@ -1021,11 +1087,40 @@ export type Meinkraft = {
             "type": "u64"
           },
           {
+            "name": "pendingMints",
+            "docs": [
+              "Mints to be performed during settlement."
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "pendingMint"
+                }
+              }
+            }
+          },
+          {
             "name": "active",
             "docs": [
               "Whether a game is currently in progress."
             ],
             "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "pendingMint",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "count",
+            "type": "u32"
           }
         ]
       }

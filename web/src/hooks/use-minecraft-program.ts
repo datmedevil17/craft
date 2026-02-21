@@ -20,6 +20,11 @@ export interface PlayerProfile {
     gamesPlayed: number;
 }
 
+export interface PendingMint {
+    mint: PublicKey;
+    count: number;
+}
+
 export interface GameSession {
     authority: PublicKey;
     realm: string;
@@ -27,6 +32,7 @@ export interface GameSession {
     attacks: number;
     kills: number;
     score: bigint;
+    pendingMints: PendingMint[];
     active: boolean;
 }
 
@@ -40,6 +46,8 @@ const PROGRAM_ID = new PublicKey(IDL.address);
 const DELEGATION_PROGRAM_ID = new PublicKey(
     "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
 );
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 
 const ER_ENDPOINT = "https://devnet.magicblock.app";
 const ER_WS_ENDPOINT = "wss://devnet.magicblock.app";
@@ -232,6 +240,7 @@ export function useMinecraftProgram() {
                 attacks: acc.attacks,
                 kills: acc.kills,
                 score: BigInt(acc.score.toString()),
+                pendingMints: acc.pendingMints || [],
                 active: acc.active,
             });
         } catch {
@@ -250,6 +259,7 @@ export function useMinecraftProgram() {
                 attacks: acc.attacks,
                 kills: acc.kills,
                 score: BigInt(acc.score.toString()),
+                pendingMints: acc.pendingMints || [],
                 active: acc.active,
             });
         } catch {
@@ -264,6 +274,7 @@ export function useMinecraftProgram() {
             const info = await connection.getAccountInfo(sessionPubkey);
             if (!info) { setDelegationStatus("undelegated"); return; }
             const isDelegated = info.owner.equals(DELEGATION_PROGRAM_ID);
+            console.log(`Session delegation status: ${isDelegated ? "DELEGATED" : "UNDELEGATED"}`);
             setDelegationStatus(isDelegated ? "delegated" : "undelegated");
             if (isDelegated) await fetchErSession();
         } catch {
@@ -309,6 +320,7 @@ export function useMinecraftProgram() {
                         attacks: dec.attacks,
                         kills: dec.kills,
                         score: BigInt(dec.score.toString()),
+                        pendingMints: dec.pendingMints || [],
                         active: dec.active,
                     });
                 } catch (e) { console.error("Failed to decode session:", e); }
@@ -340,6 +352,7 @@ export function useMinecraftProgram() {
                         attacks: dec.attacks,
                         kills: dec.kills,
                         score: BigInt(dec.score.toString()),
+                        pendingMints: dec.pendingMints || [],
                         active: dec.active,
                     });
                 } catch (e) { console.error("Failed to decode ER session:", e); }
@@ -455,6 +468,7 @@ export function useMinecraftProgram() {
                 .rpc({ skipPreflight: true });
 
             useCubeStore.getState().addToast(tx, "Delegate Session");
+            console.log("Session successfully delegated to ER cluster.");
 
             // Wait a bit for delegation to propagate across the network
             await new Promise(r => setTimeout(r, 2000));
@@ -511,15 +525,23 @@ export function useMinecraftProgram() {
      * Record an entity kill and award score.
      * @param entityType entity name, e.g. "Wolf"
      * @param scoreReward points to award (use KILL_REWARDS or custom)
+     * @param mintPubkey Token mint address for the NFT
      */
     const killEntity = useCallback(async (
         entityType: string,
-        scoreReward?: number
+        scoreReward?: number,
+        mintPubkey?: PublicKey
     ): Promise<string> => {
         if (!erProgram) throw new Error("ER Program not loaded");
         const reward = scoreReward ?? KILL_REWARDS[entityType] ?? 10;
+
+        // Append mint pubkey to entity type if provided so the program can extract it
+        const typeWithMint = mintPubkey
+            ? `${entityType}:${mintPubkey.toBase58()}`
+            : entityType;
+
         return sendErTx(
-            erProgram.methods.killEntity(entityType, new BN(reward)),
+            erProgram.methods.killEntity(typeWithMint, new BN(reward)),
             "killEntity"
         );
     }, [erProgram, sendErTx]);
@@ -584,7 +606,7 @@ export function useMinecraftProgram() {
         } finally {
             setIsLoading(false);
         }
-    }, [program, erProvider, erConnection, wallet.publicKey, fetchProfile]);
+    }, [program, erProvider, erConnection, connection, wallet.publicKey, fetchProfile]);
 
     /**
      * Undelegate the GameSession from the ER and settle final stats
@@ -598,21 +620,49 @@ export function useMinecraftProgram() {
         setIsLoading(true);
         setError(null);
         try {
+            // Collect remaining accounts for NFT minting from ER session state
+            const remainingAccounts: { pubkey: PublicKey, isWritable: boolean, isSigner: boolean }[] = [];
+
+            if (erGameSession && erGameSession.pendingMints) {
+                for (const pending of erGameSession.pendingMints) {
+                    const mint = new PublicKey(pending.mint);
+
+                    // Derive ATA for the player
+                    const [ata] = PublicKey.findProgramAddressSync(
+                        [
+                            wallet.publicKey.toBuffer(),
+                            TOKEN_PROGRAM_ID.toBuffer(),
+                            mint.toBuffer(),
+                        ],
+                        ASSOCIATED_TOKEN_PROGRAM_ID
+                    );
+
+                    remainingAccounts.push({ pubkey: mint, isWritable: true, isSigner: false });
+                    remainingAccounts.push({ pubkey: ata, isWritable: true, isSigner: false });
+                }
+            }
+
             let tx = await program.methods
                 .undelegateSession()
-                .accounts({ payer: wallet.publicKey })
+                .accounts({
+                    payer: wallet.publicKey,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                } as any)
+                .remainingAccounts(remainingAccounts)
                 .transaction();
 
             tx.feePayer = wallet.publicKey;
-            tx.recentBlockhash = (await erConnection.getLatestBlockhash()).blockhash;
-            tx = await erProvider.wallet.signTransaction(tx);
+            tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+            if (!wallet.signTransaction) throw new Error("Wallet does not support signing");
+            tx = await wallet.signTransaction(tx);
 
-            const txHash = await erConnection.sendRawTransaction(tx.serialize(), {
+            const txHash = await connection.sendRawTransaction(tx.serialize(), {
                 skipPreflight: true,
             });
-            await erConnection.confirmTransaction(txHash, "confirmed");
+            await connection.confirmTransaction(txHash, "confirmed");
 
             useCubeStore.getState().addToast(txHash, "Undelegate Session");
+            console.log("Session successfully undelegated and settled on base layer.");
 
             // Wait for undelegation to propagate
             await new Promise(r => setTimeout(r, 2000));
@@ -631,7 +681,7 @@ export function useMinecraftProgram() {
         } finally {
             setIsLoading(false);
         }
-    }, [program, erProvider, erConnection, wallet.publicKey, fetchProfile, fetchSession]);
+    }, [program, erProvider, erConnection, connection, wallet.publicKey, fetchProfile, fetchSession]);
 
     // ================================================================
     //  Return

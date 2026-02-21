@@ -22,7 +22,7 @@ export const SolanaProvider = ({ children }) => {
 
     const config = useMemo(() => ({
         commitment: 'confirmed',
-        wsEndpoint: "wss://api.devnet.solana.com"
+        wsEndpoint: "wss://devnet.helius-rpc.com/?api-key=9ca29b35-645b-47ec-8787-af25bc43be2c"
     }), []);
 
     return (

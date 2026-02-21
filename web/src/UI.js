@@ -4,6 +4,7 @@ import { WalletMultiButton, useWalletModal } from "@solana/wallet-adapter-react-
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useMinecraftProgram } from "./hooks/use-minecraft-program"
 import { getNPCResponse } from "./aiService"
+import { ENTITY_MINTS } from "./MintConfig"
 
 export const UI = () => {
     const { connected, publicKey, select, wallets } = useWallet()
@@ -66,7 +67,8 @@ export const UI = () => {
         }
         blockchainActions.killEntity = (type, reward) => {
             console.log("Blockchain Action: killEntity", type)
-            killEntity(type, reward).catch(console.error)
+            const mint = ENTITY_MINTS[type];
+            killEntity(type, reward, mint).catch(console.error)
         }
         blockchainActions.enterGame = (realm) => {
             console.log("Blockchain Action: enterGame", realm)

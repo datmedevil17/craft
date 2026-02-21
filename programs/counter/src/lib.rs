@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{self, MintTo, Token};
 use ephemeral_rollups_sdk::anchor::{commit, delegate, ephemeral};
 use ephemeral_rollups_sdk::cpi::DelegateConfig;
 use ephemeral_rollups_sdk::ephem::{commit_accounts, commit_and_undelegate_accounts};
@@ -54,12 +55,55 @@ pub mod meinkraft {
     }
 
     /// Undelegate the GameSession PDA from the ER and commit final state.
-    /// Must be called on the EPHEMERAL ROLLUP to settle scores back to base.
-    pub fn undelegate_session(ctx: Context<CommitSession>) -> Result<()> {
+    /// Must be called on the BASE LAYER to settle scores back to base.
+    pub fn undelegate_session<'info>(ctx: Context<'_, '_, '_, 'info, CommitSession<'info>>) -> Result<()> {
         require!(
             !ctx.accounts.game_session.active,
             GameError::SessionStillActive
         );
+
+        // --- NFT Settlement ---
+        // Perform minting for all pending kills recorded during the ER session.
+        // We expect the frontend to pass [Mint, PlayerATA] pairs in remaining_accounts.
+        let pending_mints = ctx.accounts.game_session.pending_mints.clone();
+        let remaining_accounts = ctx.remaining_accounts;
+        
+        // Use a simple seeds-based PDA as the mint authority
+        let seeds: &[&[u8]] = &[b"mint_authority"];
+        let (_, bump) = Pubkey::find_program_address(seeds, ctx.program_id);
+        let signer_seeds: &[&[&[u8]]] = &[&[b"mint_authority", &[bump]]];
+
+        for pending in pending_mints {
+            if pending.count == 0 { continue; }
+
+            // Find matching mint and ATA in remaining accounts
+            let mut mint_account = None;
+            let mut ata_account = None;
+
+            // A more robust way to find accounts in remaining_accounts:
+            // Expecting [Mint1, ATA1, Mint2, ATA2, ...]
+            for i in 0..remaining_accounts.len() {
+                if remaining_accounts[i].key() == pending.mint {
+                    mint_account = Some(remaining_accounts[i].clone());
+                    if i + 1 < remaining_accounts.len() {
+                        ata_account = Some(remaining_accounts[i+1].clone());
+                    }
+                    break;
+                }
+            }
+
+            if let (Some(mint), Some(ata)) = (mint_account, ata_account) {
+                let cpi_accounts = MintTo {
+                    mint,
+                    to: ata,
+                    authority: ctx.accounts.mint_authority.to_account_info(),
+                };
+                let cpi_program = ctx.accounts.token_program.to_account_info();
+                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+                token::mint_to(cpi_ctx, pending.count as u64)?;
+                msg!("Minted {} tokens for mint {}", pending.count, pending.mint);
+            }
+        }
 
         // Snapshot session values before taking the mutable profile borrow
         let blocks = ctx.accounts.game_session.blocks_placed as u64;
@@ -114,6 +158,7 @@ pub mod meinkraft {
         session.attacks = 0;
         session.kills = 0;
         session.score = 0;
+        session.pending_mints = Vec::new();
         session.active = true;
         msg!("Game entered. Realm: {}", realm);
         Ok(())
@@ -170,6 +215,21 @@ pub mod meinkraft {
         require!(session.active, GameError::NoActiveSession);
         session.kills = session.kills.saturating_add(1);
         session.score = session.score.saturating_add(score_reward);
+
+        // Record pending mint
+        if let Some(mint_str) = entity_type.split(':').last() {
+             if let Ok(mint_pubkey) = Pubkey::try_from(mint_str) {
+                if let Some(entry) = session.pending_mints.iter_mut().find(|m| m.mint == mint_pubkey) {
+                    entry.count = entry.count.saturating_add(1);
+                } else if session.pending_mints.len() < 10 {
+                    session.pending_mints.push(PendingMint {
+                        mint: mint_pubkey,
+                        count: 1,
+                    });
+                }
+             }
+        }
+
         msg!(
             "Killed {}. Reward: {}. Total kills: {}",
             entity_type,
@@ -306,6 +366,16 @@ pub struct CommitSession<'info> {
         bump
     )]
     pub profile: Account<'info, PlayerProfile>,
+
+    /// CHECK: The PDA that has mint authority over the NFTs.
+    /// Seeds: [b"mint_authority"]
+    #[account(
+        seeds = [b"mint_authority"],
+        bump
+    )]
+    pub mint_authority: AccountInfo<'info>,
+
+    pub token_program: Program<'info, Token>,
 }
 
 // ============================================================
@@ -348,8 +418,17 @@ pub struct GameSession {
     pub kills: u32,
     /// Score accumulated this session.
     pub score: u64,
+    /// Mints to be performed during settlement.
+    #[max_len(10)]
+    pub pending_mints: Vec<PendingMint>,
     /// Whether a game is currently in progress.
     pub active: bool,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Copy)]
+pub struct PendingMint {
+    pub mint: Pubkey,
+    pub count: u32,
 }
 
 // ============================================================
