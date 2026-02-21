@@ -108,6 +108,11 @@ function deriveSessionPDA(authority: PublicKey): PublicKey {
  *   Settle:     undelegateSession
  */
 export function useMinecraftProgram() {
+    // Add a version log to verify stale code issues
+    useEffect(() => {
+        console.log("[Status] useMinecraftProgram hook loaded (v3 - reference-aligned)");
+    }, []);
+
     const { connection } = useConnection();
     const wallet = useWallet();
 
@@ -268,19 +273,54 @@ export function useMinecraftProgram() {
     }, [erProgram, sessionPubkey]);
 
     // ---- Delegation status check ----
-    const checkDelegationStatus = useCallback(async () => {
+    const checkDelegationStatus = useCallback(async (currentOwner?: PublicKey) => {
         if (!sessionPubkey) { setDelegationStatus("checking"); return; }
         try {
-            const info = await connection.getAccountInfo(sessionPubkey);
-            if (!info) { setDelegationStatus("undelegated"); return; }
-            const isDelegated = info.owner.equals(DELEGATION_PROGRAM_ID);
-            console.log(`Session delegation status: ${isDelegated ? "DELEGATED" : "UNDELEGATED"}`);
-            setDelegationStatus(isDelegated ? "delegated" : "undelegated");
-            if (isDelegated) await fetchErSession();
-        } catch {
+            let owner = currentOwner;
+            if (!owner) {
+                const info = await connection.getAccountInfo(sessionPubkey);
+                if (!info) {
+                    setDelegationStatus("undelegated");
+                    return;
+                }
+                owner = info.owner;
+            }
+
+            const isDelegatedNow = owner.equals(DELEGATION_PROGRAM_ID);
+            const newStatus = isDelegatedNow ? "delegated" : "undelegated";
+
+            setDelegationStatus(prev => {
+                if (prev !== newStatus) {
+                    console.log(`[Status] Delegation changed: ${newStatus.toUpperCase()} (Owner: ${owner?.toBase58()})`);
+                }
+                return newStatus;
+            });
+
+            // If delegated, fetch from ER
+            if (isDelegatedNow && erProgram) {
+                try {
+                    const acc = await erProgram.account.gameSession.fetch(sessionPubkey);
+                    setErGameSession({
+                        authority: acc.authority,
+                        realm: acc.realm,
+                        blocksPlaced: acc.blocksPlaced,
+                        attacks: acc.attacks,
+                        kills: acc.kills,
+                        score: BigInt(acc.score.toString()),
+                        pendingMints: acc.pendingMints || [],
+                        active: acc.active,
+                    });
+                } catch {
+                    console.debug("Could not fetch ER session data (normal during transitions)");
+                }
+            } else if (!isDelegatedNow) {
+                setErGameSession(null);
+            }
+        } catch (err) {
+            console.error("Error checking delegation status:", err);
             setDelegationStatus("undelegated");
         }
-    }, [sessionPubkey, connection, fetchErSession]);
+    }, [sessionPubkey, connection, erProgram]);
 
     // ---- Base-layer subscriptions ----
     useEffect(() => {
@@ -325,7 +365,7 @@ export function useMinecraftProgram() {
                     });
                 } catch (e) { console.error("Failed to decode session:", e); }
                 // Recheck delegation status whenever the base-layer session account changes
-                await checkDelegationStatus();
+                await checkDelegationStatus(info.owner);
             },
             "confirmed"
         );
@@ -652,17 +692,16 @@ export function useMinecraftProgram() {
                 .transaction();
 
             tx.feePayer = wallet.publicKey;
-            tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-            if (!wallet.signTransaction) throw new Error("Wallet does not support signing");
-            tx = await wallet.signTransaction(tx);
+            tx.recentBlockhash = (await erConnection.getLatestBlockhash()).blockhash;
+            tx = await erProvider.wallet.signTransaction(tx);
 
-            const txHash = await connection.sendRawTransaction(tx.serialize(), {
+            const txHash = await erConnection.sendRawTransaction(tx.serialize(), {
                 skipPreflight: true,
             });
-            await connection.confirmTransaction(txHash, "confirmed");
+            await erConnection.confirmTransaction(txHash, "confirmed");
 
             useCubeStore.getState().addToast(txHash, "Undelegate Session");
-            console.log("Session successfully undelegated and settled on base layer.");
+            console.log("Session successfully undelegated via ER cluster.");
 
             // Wait for undelegation to propagate
             await new Promise(r => setTimeout(r, 2000));
