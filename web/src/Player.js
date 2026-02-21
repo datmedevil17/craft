@@ -5,14 +5,16 @@ import { useFrame } from "@react-three/fiber"
 import { useKeyboardControls } from "@react-three/drei"
 import { CapsuleCollider, RigidBody, useRapier } from "@react-three/rapier"
 import Tool from "./Tool"
+import { useSocket } from "./SocketContext"
 
 const SPEED = 5
 const direction = new THREE.Vector3()
 const frontVector = new THREE.Vector3()
 const sideVector = new THREE.Vector3()
-const rotation = new THREE.Vector3()
+const rotationVec = new THREE.Vector3() // Renamed to avoid confusion
 
 export function Player({ lerp = THREE.MathUtils.lerp }) {
+  const { updatePosition } = useSocket()
   const axe = useRef()
   const ref = useRef() // RigidBody ref
   const rapier = useRapier()
@@ -80,6 +82,13 @@ export function Player({ lerp = THREE.MathUtils.lerp }) {
     if (translation.y < -20) {
       ref.current.setTranslation({ x: 0, y: 10, z: 0 })
       ref.current.setLinvel({ x: 0, y: 0, z: 0 })
+    }
+
+    // Multiplayer sync
+    if (state.clock.elapsedTime % 0.05 < 0.02) { // Roughly 20 times per second
+      const pos = ref.current.translation()
+      const rot = state.camera.rotation
+      updatePosition([pos.x, pos.y, pos.z], [rot.x, rot.y, rot.z])
     }
   })
   return (

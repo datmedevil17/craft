@@ -15,6 +15,8 @@ import { Atmosphere } from "./Atmosphere"
 import { SolanaProvider } from "./SolanaProvider"
 import { useCubeStore } from "./useStore"
 import { TxToast } from "./TxToast"
+import { SocketProvider } from "./SocketContext"
+import { OtherPlayers } from "./OtherPlayers"
 
 function Game() {
   const gameStarted = useCubeStore((state) => state.gameStarted)
@@ -42,6 +44,7 @@ function Game() {
         {gameStarted && (
           <>
             <Player />
+            <OtherPlayers />
             <Animals />
             <NPCs />
             <Enemies />
@@ -57,22 +60,24 @@ function Game() {
 export default function App() {
   return (
     <SolanaProvider>
-      <KeyboardControls
-        map={[
-          { name: "forward", keys: ["ArrowUp", "w", "W"] },
-          { name: "backward", keys: ["ArrowDown", "s", "S"] },
-          { name: "left", keys: ["ArrowLeft", "a", "A"] },
-          { name: "right", keys: ["ArrowRight", "d", "D"] },
-          { name: "jump", keys: ["Space"] },
-        ]}>
-        <Canvas shadows camera={{ fov: 45 }}>
-          <Suspense fallback={null}>
-            <Game />
-          </Suspense>
-        </Canvas>
-        <UI />
-        <TxToast />
-      </KeyboardControls>
+      <SocketProvider>
+        <KeyboardControls
+          map={[
+            { name: "forward", keys: ["ArrowUp", "w", "W"] },
+            { name: "backward", keys: ["ArrowDown", "s", "S"] },
+            { name: "left", keys: ["ArrowLeft", "a", "A"] },
+            { name: "right", keys: ["ArrowRight", "d", "D"] },
+            { name: "jump", keys: ["Space"] },
+          ]}>
+          <Canvas shadows camera={{ fov: 45 }}>
+            <Suspense fallback={null}>
+              <Game />
+            </Suspense>
+          </Canvas>
+          <UI />
+          <TxToast />
+        </KeyboardControls>
+      </SocketProvider>
     </SolanaProvider>
   )
 }

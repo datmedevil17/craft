@@ -4,15 +4,15 @@ import { RigidBody } from "@react-three/rapier"
 import * as THREE from "three"
 import { useCubeStore, REALM_CONFIG } from "./useStore"
 
-// Import textures for webpack to handle correctly
-import grassJpg from "./assets/grass.jpg"
-import dirtJpg from "./assets/dirt.jpg"
+// Use static paths from public/assets/textures
+const grassJpg = "/assets/textures/grass.jpg"
+const dirtJpg = "/assets/textures/dirt.jpg"
 
 export const Ground = (props) => {
   const { realm } = useCubeStore()
   const config = REALM_CONFIG[realm]
 
-  // Use imported textures
+  // Use static paths
   const grass = useTexture(grassJpg)
   const dirt = useTexture(dirtJpg)
 
