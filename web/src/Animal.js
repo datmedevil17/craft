@@ -155,7 +155,9 @@ export const Animal = ({ type, position: initialPosition }) => {
                 rb.current.setLinvel({ x: dir.x * 5, y: velocity.y, z: dir.z * 5 }, true)
 
                 // Rotate
-                const lookAtRotation = new THREE.Matrix4().lookAt(playerPos, currentPos, new THREE.Vector3(0, 1, 0))
+                const targetPos = playerPos.clone()
+                targetPos.y = currentPos.y
+                const lookAtRotation = new THREE.Matrix4().lookAt(targetPos, currentPos, new THREE.Vector3(0, 1, 0))
                 const q = new THREE.Quaternion().setFromRotationMatrix(lookAtRotation)
                 group.current.quaternion.slerp(q, 0.1)
 
@@ -188,7 +190,9 @@ export const Animal = ({ type, position: initialPosition }) => {
             dir.y = 0
             const velocity = rb.current.linvel()
             rb.current.setLinvel({ x: dir.x * 3, y: velocity.y, z: dir.z * 3 }, true)
-            const lookAtRotation = new THREE.Matrix4().lookAt(targetPosition, currentPos, new THREE.Vector3(0, 1, 0))
+            const targetPos = targetPosition.clone()
+            targetPos.y = currentPos.y
+            const lookAtRotation = new THREE.Matrix4().lookAt(targetPos, currentPos, new THREE.Vector3(0, 1, 0))
             const q = new THREE.Quaternion().setFromRotationMatrix(lookAtRotation)
             group.current.quaternion.slerp(q, 0.1)
 

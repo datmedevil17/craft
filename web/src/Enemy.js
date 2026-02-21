@@ -109,7 +109,9 @@ export default function Enemy({ type, position: initialPosition }) {
             }, true)
 
             // Rotate towards player
-            const lookAtRotation = new THREE.Matrix4().lookAt(playerPos, currentPos, new THREE.Vector3(0, 1, 0))
+            const targetPos = playerPos.clone()
+            targetPos.y = currentPos.y // Prevent pitching up/down
+            const lookAtRotation = new THREE.Matrix4().lookAt(targetPos, currentPos, new THREE.Vector3(0, 1, 0))
             const q = new THREE.Quaternion().setFromRotationMatrix(lookAtRotation)
             group.current.quaternion.slerp(q, 0.1)
 

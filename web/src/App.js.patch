@@ -1,0 +1,18 @@
+--- web/src/App.js
++++ web/src/App.js
+@@ -32,7 +32,9 @@
+     if (!pointerLockRef.current) return
+     if (gameStarted && !isGameOver && !isInventoryOpen && !isMenuOpen) {
+       // Browser requires a tiny delay sometimes to acquire lock after click/state change
+-      setTimeout(() => {
+-        if (pointerLockRef.current) pointerLockRef.current.lock()
+-      }, 50)
++      const lockNextFrame = () => {
++          if (pointerLockRef.current) pointerLockRef.current.lock();
++      }
++      // Listen for click on the canvas to enforce lock if the browser rejects the programmatic lock
++      document.addEventListener('click', lockNextFrame, { once: true });
++      setTimeout(lockNextFrame, 100);
+     } else {
+       pointerLockRef.current.unlock()
+     }

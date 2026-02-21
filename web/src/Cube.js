@@ -7,14 +7,14 @@ export const Cubes = () => {
   const cubes = useCubeStore((state) => state.cubes)
   const realm = useCubeStore((state) => state.realm)
   return cubes
-    .filter(cube => cube.realm === realm)
+    .filter(cube => cube.realm === realm && cube.type && cube.type.startsWith('Block_'))
     .map((cube, index) => <Cube key={index} position={cube.pos} type={cube.type} />)
 }
 
 export function Cube({ position, type, ...props }) {
   const ref = useRef()
   const [hover, set] = useState(null)
-  const { addCube, removeCube, currentTool, blockchainActions, currentBlock } = useCubeStore()
+  const { addCube, removeCube, currentTool, blockchainActions, currentBlock, cameraMode } = useCubeStore()
   const [clicks, setClicks] = useState(0)
   const { getRequiredClicks } = require("./miningConfig")
   const requiredClicks = getRequiredClicks(type, currentTool)
@@ -30,7 +30,8 @@ export function Cube({ position, type, ...props }) {
   const onOut = useCallback(() => set(null), [])
   const onClick = useCallback((e) => {
     e.stopPropagation()
-    if (e.button === 0) { // Left click to remove/damage
+    if (e.button === 0) {
+      // Left click only → damage/break block
       setClicks(prev => {
         const next = prev + 1
         if (next >= requiredClicks) {
@@ -39,9 +40,11 @@ export function Cube({ position, type, ...props }) {
         }
         return next
       })
-    } else if (e.button === 2) { // Right click to add
+    } else if (e.button === 2) {
+      // Right click with a block selected → place block (first-person only)
+      if (cameraMode !== 'first') return;
+      if (!currentBlock || !currentBlock.startsWith('Block_')) return;
       const { x, y, z } = ref.current.translation()
-      // Use the face normal to determine the neighbor position
       const { x: nx, y: ny, z: nz } = e.face.normal
       addCube(x + nx, y + ny, z + nz)
       blockchainActions.placeBlock(currentBlock)

@@ -75,9 +75,43 @@ export const useCubeStore = create((set) => ({
     setShowStatsModal: (show) => set({ showStatsModal: show }),
     showUndelegatePrompt: false,
     setShowUndelegatePrompt: (show) => set({ showUndelegatePrompt: show }),
+    isInventoryOpen: false,
+    setInventoryOpen: (open) => set({ isInventoryOpen: open }),
+    isMenuOpen: false,
+    setMenuOpen: (open) => set({ isMenuOpen: open }),
+    cameraMode: 'first', // 'first' | 'third_back' | 'third_front'
+    setCameraMode: (mode) => set({ cameraMode: mode }),
+    // Flag to suppress the Game Menu when we programmatically close inventory via keys
+    suppressNextMenuOpen: false,
+    setSuppressNextMenuOpen: (v) => set({ suppressNextMenuOpen: v }),
+
+    // 9-slot hotbar: starts empty
+    hotbarSlots: Array(9).fill(null),
+    selectedHotbarIndex: 0,
+    setSelectedHotbarIndex: (i) => set({ selectedHotbarIndex: i }),
+    setHotbarSlot: (index, item) => set((state) => {
+        const next = [...state.hotbarSlots]
+        next[index] = item
+        return { hotbarSlots: next }
+    }),
+    // drag source tracking: { type: 'inventory'|'hotbar', index }
+    dragSource: null,
+    setDragSource: (src) => set({ dragSource: src }),
+
+    // 26-slot inventory: populated with realm items on startGame
+    inventorySlots: Array(26).fill(null),
+    setInventorySlot: (index, item) => set((state) => {
+        const next = [...state.inventorySlots]
+        next[index] = item
+        return { inventorySlots: next }
+    }),
 
     startGame: (realm) => {
         const config = REALM_CONFIG[realm]
+        // Fill inventory slots with available items (blocks + tools), rest empty
+        const allItems = [...(config.blocks || []), ...(config.tools || [])]
+        const inventorySlots = Array(26).fill(null)
+        allItems.slice(0, 26).forEach((item, i) => { inventorySlots[i] = item })
         set({
             gameStarted: true,
             realm: realm,
@@ -85,11 +119,14 @@ export const useCubeStore = create((set) => ({
             tools: config.tools,
             animals: config.animals,
             enemies: config.enemies,
-            currentBlock: config.blocks[0],
+            currentBlock: null,
             currentTool: config.tools[0],
             playerHealth: 100,
             isGameOver: false,
-            invincible: true
+            invincible: true,
+            hotbarSlots: Array(9).fill(null),
+            selectedHotbarIndex: 0,
+            inventorySlots,
         })
         setTimeout(() => {
             set({ invincible: false })
