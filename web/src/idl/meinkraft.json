@@ -1,5 +1,5 @@
 {
-  "address": "A8qoTZrfzgBCPADBwGQJxva9ymsUkYEnSXXtUik7HvoQ",
+  "address": "72WYk7b352n3SFb3k1qGmPnKDY2dUvr5rgK55RNa14Yt",
   "metadata": {
     "name": "meinkraft",
     "version": "0.1.0",
@@ -10,8 +10,7 @@
     {
       "name": "attack",
       "docs": [
-        "Record an attack event (player hits an entity).",
-        "Each swing is one tx on the ER."
+        "Record an attack event"
       ],
       "discriminator": [
         197,
@@ -25,51 +24,14 @@
       ],
       "accounts": [
         {
-          "name": "game_session",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
-                "kind": "const",
-                "value": [
-                  115,
-                  101,
-                  115,
-                  115,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
                 "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
-              }
-            ]
-          }
-        },
-        {
-          "name": "profile",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  114,
-                  111,
-                  102,
-                  105,
-                  108,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
+                "path": "meinkraft_account.authority",
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -81,9 +43,6 @@
         },
         {
           "name": "session_token",
-          "docs": [
-            "Session token allows a delegated key to sign on behalf of the player."
-          ],
           "optional": true
         }
       ],
@@ -99,20 +58,19 @@
       ]
     },
     {
-      "name": "commit_session",
+      "name": "commit",
       "docs": [
-        "Manual commit — persists current ER state to the base layer mid-session",
-        "(optional checkpoint, does NOT end the session or undelegate)."
+        "Manual commit state to base layer"
       ],
       "discriminator": [
-        75,
-        2,
-        56,
-        144,
-        89,
+        223,
+        140,
+        142,
+        165,
+        229,
         208,
-        173,
-        167
+        156,
+        74
       ],
       "accounts": [
         {
@@ -121,85 +79,16 @@
           "signer": true
         },
         {
-          "name": "game_session",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  101,
-                  115,
-                  115,
-                  105,
-                  111,
-                  110
-                ]
-              },
               {
                 "kind": "account",
                 "path": "payer"
               }
             ]
           }
-        },
-        {
-          "name": "profile",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  114,
-                  111,
-                  102,
-                  105,
-                  108,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "payer"
-              }
-            ]
-          }
-        },
-        {
-          "name": "mint_authority",
-          "docs": [
-            "Seeds: [b\"mint_authority\"]"
-          ],
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  105,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
           "name": "magic_program",
@@ -214,26 +103,23 @@
       "args": []
     },
     {
-      "name": "delegate_session",
+      "name": "delegate",
       "docs": [
-        "Delegate the GameSession PDA to the MagicBlock Ephemeral Rollup.",
-        "Must be called on the BASE LAYER before starting a game session.",
-        "The `#[delegate]` macro injects the delegation infrastructure accounts."
+        "Delegate the account to the ER"
       ],
       "discriminator": [
-        82,
-        83,
-        119,
-        119,
-        196,
-        219,
-        5,
-        197
+        90,
+        147,
+        75,
+        178,
+        85,
+        88,
+        4,
+        137
       ],
       "accounts": [
         {
           "name": "payer",
-          "writable": true,
           "signer": true
         },
         {
@@ -260,38 +146,38 @@
             "program": {
               "kind": "const",
               "value": [
-                135,
-                187,
-                109,
-                110,
-                141,
-                118,
-                103,
-                206,
-                87,
-                218,
-                207,
-                178,
-                26,
-                122,
+                89,
                 137,
-                49,
-                113,
-                201,
-                76,
-                51,
-                237,
-                29,
-                217,
-                13,
-                143,
-                154,
+                28,
+                146,
+                30,
+                72,
+                105,
+                191,
+                96,
                 5,
-                176,
-                14,
-                134,
-                64,
-                119
+                128,
+                13,
+                207,
+                122,
+                206,
+                99,
+                159,
+                4,
+                145,
+                167,
+                166,
+                48,
+                53,
+                3,
+                76,
+                201,
+                78,
+                92,
+                245,
+                232,
+                127,
+                213
               ]
             }
           }
@@ -373,18 +259,6 @@
           "pda": {
             "seeds": [
               {
-                "kind": "const",
-                "value": [
-                  115,
-                  101,
-                  115,
-                  115,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
                 "kind": "account",
                 "path": "payer"
               }
@@ -393,7 +267,7 @@
         },
         {
           "name": "owner_program",
-          "address": "A8qoTZrfzgBCPADBwGQJxva9ymsUkYEnSXXtUik7HvoQ"
+          "address": "72WYk7b352n3SFb3k1qGmPnKDY2dUvr5rgK55RNa14Yt"
         },
         {
           "name": "delegation_program",
@@ -409,8 +283,7 @@
     {
       "name": "end_game",
       "docs": [
-        "End the active game session.",
-        "Marks session inactive so it can be undelegated safely."
+        "End the active game session"
       ],
       "discriminator": [
         224,
@@ -424,51 +297,14 @@
       ],
       "accounts": [
         {
-          "name": "game_session",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
-                "kind": "const",
-                "value": [
-                  115,
-                  101,
-                  115,
-                  115,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
                 "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
-              }
-            ]
-          }
-        },
-        {
-          "name": "profile",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  114,
-                  111,
-                  102,
-                  105,
-                  108,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
+                "path": "meinkraft_account.authority",
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -480,9 +316,6 @@
         },
         {
           "name": "session_token",
-          "docs": [
-            "Session token allows a delegated key to sign on behalf of the player."
-          ],
           "optional": true
         }
       ],
@@ -491,9 +324,7 @@
     {
       "name": "enter_game",
       "docs": [
-        "Start a game session.",
-        "Resets session counters and marks session as active.",
-        "Called on the ER after delegation."
+        "Enter the game session"
       ],
       "discriminator": [
         157,
@@ -507,51 +338,14 @@
       ],
       "accounts": [
         {
-          "name": "game_session",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
-                "kind": "const",
-                "value": [
-                  115,
-                  101,
-                  115,
-                  115,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
                 "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
-              }
-            ]
-          }
-        },
-        {
-          "name": "profile",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  114,
-                  111,
-                  102,
-                  105,
-                  108,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
+                "path": "meinkraft_account.authority",
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -563,9 +357,6 @@
         },
         {
           "name": "session_token",
-          "docs": [
-            "Session token allows a delegated key to sign on behalf of the player."
-          ],
           "optional": true
         }
       ],
@@ -577,39 +368,26 @@
       ]
     },
     {
-      "name": "initialize_profile",
+      "name": "initialize",
       "docs": [
-        "Create the player's persistent profile.",
-        "Seeds: [b\"profile\", authority]"
+        "Initialize a new Meinkraft player account"
       ],
       "discriminator": [
-        32,
-        145,
-        77,
-        213,
-        58,
-        39,
-        251,
-        234
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
       ],
       "accounts": [
         {
-          "name": "profile",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  114,
-                  111,
-                  102,
-                  105,
-                  108,
-                  101
-                ]
-              },
               {
                 "kind": "account",
                 "path": "authority"
@@ -632,8 +410,7 @@
     {
       "name": "kill_entity",
       "docs": [
-        "Record an entity kill (animal or enemy).",
-        "Called when an entity's health reaches zero."
+        "Record an entity kill"
       ],
       "discriminator": [
         169,
@@ -647,51 +424,14 @@
       ],
       "accounts": [
         {
-          "name": "game_session",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
-                "kind": "const",
-                "value": [
-                  115,
-                  101,
-                  115,
-                  115,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
                 "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
-              }
-            ]
-          }
-        },
-        {
-          "name": "profile",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  114,
-                  111,
-                  102,
-                  105,
-                  108,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
+                "path": "meinkraft_account.authority",
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -703,9 +443,6 @@
         },
         {
           "name": "session_token",
-          "docs": [
-            "Session token allows a delegated key to sign on behalf of the player."
-          ],
           "optional": true
         }
       ],
@@ -723,8 +460,7 @@
     {
       "name": "place_block",
       "docs": [
-        "Record a block placement event.",
-        "Each call is one tx on the ER (cheap, fast, gasless for the player)."
+        "Record a block placement event"
       ],
       "discriminator": [
         184,
@@ -738,51 +474,14 @@
       ],
       "accounts": [
         {
-          "name": "game_session",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
-                "kind": "const",
-                "value": [
-                  115,
-                  101,
-                  115,
-                  115,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
                 "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
-              }
-            ]
-          }
-        },
-        {
-          "name": "profile",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  114,
-                  111,
-                  102,
-                  105,
-                  108,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "profile.authority",
-                "account": "PlayerProfile"
+                "path": "meinkraft_account.authority",
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -794,9 +493,6 @@
         },
         {
           "name": "session_token",
-          "docs": [
-            "Session token allows a delegated key to sign on behalf of the player."
-          ],
           "optional": true
         }
       ],
@@ -845,20 +541,19 @@
       ]
     },
     {
-      "name": "undelegate_session",
+      "name": "undelegate",
       "docs": [
-        "Undelegate the GameSession PDA from the ER and commit final state.",
-        "Must be called on the BASE LAYER to settle scores back to base."
+        "Undelegate the account from the ER"
       ],
       "discriminator": [
-        110,
-        234,
-        80,
-        245,
-        77,
-        79,
-        58,
-        116
+        131,
+        148,
+        180,
+        198,
+        91,
+        104,
+        42,
+        238
       ],
       "accounts": [
         {
@@ -867,85 +562,16 @@
           "signer": true
         },
         {
-          "name": "game_session",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  101,
-                  115,
-                  115,
-                  105,
-                  111,
-                  110
-                ]
-              },
               {
                 "kind": "account",
                 "path": "payer"
               }
             ]
           }
-        },
-        {
-          "name": "profile",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  114,
-                  111,
-                  102,
-                  105,
-                  108,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "payer"
-              }
-            ]
-          }
-        },
-        {
-          "name": "mint_authority",
-          "docs": [
-            "Seeds: [b\"mint_authority\"]"
-          ],
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  105,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
           "name": "magic_program",
@@ -962,29 +588,16 @@
   ],
   "accounts": [
     {
-      "name": "GameSession",
+      "name": "MeinkraftAccount",
       "discriminator": [
-        150,
-        116,
-        20,
-        197,
-        205,
-        121,
-        220,
-        240
-      ]
-    },
-    {
-      "name": "PlayerProfile",
-      "discriminator": [
-        82,
-        226,
-        99,
-        87,
-        164,
-        130,
-        181,
-        80
+        54,
+        101,
+        169,
+        16,
+        133,
+        249,
+        216,
+        55
       ]
     },
     {
@@ -1005,169 +618,56 @@
     {
       "code": 6000,
       "name": "NoActiveSession",
-      "msg": "No active session — call enter_game first"
+      "msg": "No active session"
     },
     {
       "code": 6001,
-      "name": "SessionAlreadyActive",
-      "msg": "Session already active — call end_game before starting a new one"
-    },
-    {
-      "code": 6002,
-      "name": "SessionStillActive",
-      "msg": "Session is still active — call end_game before undelegating"
-    },
-    {
-      "code": 6003,
       "name": "InvalidRealm",
       "msg": "Invalid realm name"
     },
     {
-      "code": 6004,
+      "code": 6002,
       "name": "InvalidAuth",
       "msg": "Invalid authentication"
     }
   ],
   "types": [
     {
-      "name": "GameSession",
-      "docs": [
-        "Ephemeral session state — delegated to ER for the duration of a game.",
-        "Settled back to base layer via commit_and_undelegate after each session."
-      ],
+      "name": "MeinkraftAccount",
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "authority",
-            "docs": [
-              "Owner of this session."
-            ],
             "type": "pubkey"
           },
           {
             "name": "realm",
-            "docs": [
-              "Active realm (\"Jungle\" | \"Desert\" | \"Snow\")."
-            ],
             "type": "string"
           },
           {
             "name": "blocks_placed",
-            "docs": [
-              "Blocks placed this session."
-            ],
-            "type": "u32"
+            "type": "u64"
           },
           {
             "name": "attacks",
-            "docs": [
-              "Attacks made this session."
-            ],
-            "type": "u32"
+            "type": "u64"
           },
           {
             "name": "kills",
-            "docs": [
-              "Entities killed this session."
-            ],
-            "type": "u32"
+            "type": "u64"
           },
           {
             "name": "score",
-            "docs": [
-              "Score accumulated this session."
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "pending_mints",
-            "docs": [
-              "Mints to be performed during settlement."
-            ],
-            "type": {
-              "vec": {
-                "defined": {
-                  "name": "PendingMint"
-                }
-              }
-            }
-          },
-          {
-            "name": "active",
-            "docs": [
-              "Whether a game is currently in progress."
-            ],
-            "type": "bool"
-          }
-        ]
-      }
-    },
-    {
-      "name": "PendingMint",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "count",
-            "type": "u32"
-          }
-        ]
-      }
-    },
-    {
-      "name": "PlayerProfile",
-      "docs": [
-        "Persistent player profile — lives on the base layer forever."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "authority",
-            "docs": [
-              "The wallet that owns this profile."
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "total_blocks_placed",
-            "docs": [
-              "Cumulative blocks placed across all sessions."
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "total_attacks",
-            "docs": [
-              "Cumulative attacks across all sessions."
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "total_kills",
-            "docs": [
-              "Cumulative entity kills across all sessions."
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "total_score",
-            "docs": [
-              "Cumulative score across all sessions."
-            ],
             "type": "u64"
           },
           {
             "name": "games_played",
-            "docs": [
-              "Number of completed games."
-            ],
-            "type": "u16"
+            "type": "u64"
+          },
+          {
+            "name": "active",
+            "type": "bool"
           }
         ]
       }

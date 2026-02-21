@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { SkeletonUtils } from 'three-stdlib'
 import { useCubeStore } from './useStore'
 import { FloatingHealthBar } from './FloatingHealthBar'
+import { KILL_REWARDS } from './hooks/use-minecraft-program'
 
 export default function Enemy({ type, position: initialPosition }) {
     const group = useRef()
@@ -47,7 +48,8 @@ export default function Enemy({ type, position: initialPosition }) {
             const newHealth = prev - 1
             if (newHealth <= 0) {
                 setStatus('dying')
-                blockchainActions.killEntity(type)
+                const reward = KILL_REWARDS[type] || 0
+                blockchainActions.killEntity(type, reward)
             } else {
                 blockchainActions.attack(type, 1)
             }

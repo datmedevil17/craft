@@ -17,6 +17,9 @@ import { useCubeStore } from "./useStore"
 import { TxToast } from "./TxToast"
 import { SocketProvider } from "./SocketContext"
 import { OtherPlayers } from "./OtherPlayers"
+import { TestPage } from "./TestPage"
+
+const isTestPage = window.location.pathname === "/test"
 
 function Game() {
   const gameStarted = useCubeStore((state) => state.gameStarted)
@@ -58,6 +61,14 @@ function Game() {
 }
 
 export default function App() {
+  if (isTestPage) {
+    return (
+      <SolanaProvider>
+        <TestPage />
+      </SolanaProvider>
+    )
+  }
+
   return (
     <SolanaProvider>
       <SocketProvider>

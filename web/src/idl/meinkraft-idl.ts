@@ -1,10 +1,4 @@
-/**
- * Program IDL in camelCase format in order to be used in JS/TS.
- *
- * Note that this is only a type helper and is not the actual IDL. The original
- * IDL can be found at `target/idl/meinkraft.json`.
- */
-export type Meinkraft = {
+export default {
   "address": "72WYk7b352n3SFb3k1qGmPnKDY2dUvr5rgK55RNa14Yt",
   "metadata": {
     "name": "meinkraft",
@@ -30,14 +24,14 @@ export type Meinkraft = {
       ],
       "accounts": [
         {
-          "name": "meinkraftAccount",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "account",
                 "path": "meinkraft_account.authority",
-                "account": "meinkraftAccount"
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -48,13 +42,13 @@ export type Meinkraft = {
           "signer": true
         },
         {
-          "name": "sessionToken",
+          "name": "session_token",
           "optional": true
         }
       ],
       "args": [
         {
-          "name": "targetType",
+          "name": "target_type",
           "type": "string"
         },
         {
@@ -85,7 +79,7 @@ export type Meinkraft = {
           "signer": true
         },
         {
-          "name": "meinkraftAccount",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
@@ -97,11 +91,11 @@ export type Meinkraft = {
           }
         },
         {
-          "name": "magicProgram",
+          "name": "magic_program",
           "address": "Magic11111111111111111111111111111111111111"
         },
         {
-          "name": "magicContext",
+          "name": "magic_context",
           "writable": true,
           "address": "MagicContext1111111111111111111111111111111"
         }
@@ -129,7 +123,7 @@ export type Meinkraft = {
           "signer": true
         },
         {
-          "name": "bufferPda",
+          "name": "buffer_pda",
           "writable": true,
           "pda": {
             "seeds": [
@@ -189,7 +183,7 @@ export type Meinkraft = {
           }
         },
         {
-          "name": "delegationRecordPda",
+          "name": "delegation_record_pda",
           "writable": true,
           "pda": {
             "seeds": [
@@ -215,12 +209,12 @@ export type Meinkraft = {
             ],
             "program": {
               "kind": "account",
-              "path": "delegationProgram"
+              "path": "delegation_program"
             }
           }
         },
         {
-          "name": "delegationMetadataPda",
+          "name": "delegation_metadata_pda",
           "writable": true,
           "pda": {
             "seeds": [
@@ -255,7 +249,7 @@ export type Meinkraft = {
             ],
             "program": {
               "kind": "account",
-              "path": "delegationProgram"
+              "path": "delegation_program"
             }
           }
         },
@@ -272,22 +266,22 @@ export type Meinkraft = {
           }
         },
         {
-          "name": "ownerProgram",
+          "name": "owner_program",
           "address": "72WYk7b352n3SFb3k1qGmPnKDY2dUvr5rgK55RNa14Yt"
         },
         {
-          "name": "delegationProgram",
+          "name": "delegation_program",
           "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
     },
     {
-      "name": "endGame",
+      "name": "end_game",
       "docs": [
         "End the active game session"
       ],
@@ -303,14 +297,14 @@ export type Meinkraft = {
       ],
       "accounts": [
         {
-          "name": "meinkraftAccount",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "account",
                 "path": "meinkraft_account.authority",
-                "account": "meinkraftAccount"
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -321,14 +315,14 @@ export type Meinkraft = {
           "signer": true
         },
         {
-          "name": "sessionToken",
+          "name": "session_token",
           "optional": true
         }
       ],
       "args": []
     },
     {
-      "name": "enterGame",
+      "name": "enter_game",
       "docs": [
         "Enter the game session"
       ],
@@ -344,14 +338,14 @@ export type Meinkraft = {
       ],
       "accounts": [
         {
-          "name": "meinkraftAccount",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "account",
                 "path": "meinkraft_account.authority",
-                "account": "meinkraftAccount"
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -362,7 +356,7 @@ export type Meinkraft = {
           "signer": true
         },
         {
-          "name": "sessionToken",
+          "name": "session_token",
           "optional": true
         }
       ],
@@ -390,7 +384,7 @@ export type Meinkraft = {
       ],
       "accounts": [
         {
-          "name": "meinkraftAccount",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
@@ -407,14 +401,14 @@ export type Meinkraft = {
           "signer": true
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
     },
     {
-      "name": "killEntity",
+      "name": "kill_entity",
       "docs": [
         "Record an entity kill"
       ],
@@ -430,14 +424,14 @@ export type Meinkraft = {
       ],
       "accounts": [
         {
-          "name": "meinkraftAccount",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "account",
                 "path": "meinkraft_account.authority",
-                "account": "meinkraftAccount"
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -448,23 +442,23 @@ export type Meinkraft = {
           "signer": true
         },
         {
-          "name": "sessionToken",
+          "name": "session_token",
           "optional": true
         }
       ],
       "args": [
         {
-          "name": "entityType",
+          "name": "entity_type",
           "type": "string"
         },
         {
-          "name": "scoreReward",
+          "name": "score_reward",
           "type": "u64"
         }
       ]
     },
     {
-      "name": "placeBlock",
+      "name": "place_block",
       "docs": [
         "Record a block placement event"
       ],
@@ -480,14 +474,14 @@ export type Meinkraft = {
       ],
       "accounts": [
         {
-          "name": "meinkraftAccount",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "account",
                 "path": "meinkraft_account.authority",
-                "account": "meinkraftAccount"
+                "account": "MeinkraftAccount"
               }
             ]
           }
@@ -498,19 +492,19 @@ export type Meinkraft = {
           "signer": true
         },
         {
-          "name": "sessionToken",
+          "name": "session_token",
           "optional": true
         }
       ],
       "args": [
         {
-          "name": "blockType",
+          "name": "block_type",
           "type": "string"
         }
       ]
     },
     {
-      "name": "processUndelegation",
+      "name": "process_undelegation",
       "discriminator": [
         196,
         28,
@@ -523,7 +517,7 @@ export type Meinkraft = {
       ],
       "accounts": [
         {
-          "name": "baseAccount",
+          "name": "base_account",
           "writable": true
         },
         {
@@ -534,12 +528,12 @@ export type Meinkraft = {
           "writable": true
         },
         {
-          "name": "systemProgram"
+          "name": "system_program"
         }
       ],
       "args": [
         {
-          "name": "accountSeeds",
+          "name": "account_seeds",
           "type": {
             "vec": "bytes"
           }
@@ -568,7 +562,7 @@ export type Meinkraft = {
           "signer": true
         },
         {
-          "name": "meinkraftAccount",
+          "name": "meinkraft_account",
           "writable": true,
           "pda": {
             "seeds": [
@@ -580,11 +574,11 @@ export type Meinkraft = {
           }
         },
         {
-          "name": "magicProgram",
+          "name": "magic_program",
           "address": "Magic11111111111111111111111111111111111111"
         },
         {
-          "name": "magicContext",
+          "name": "magic_context",
           "writable": true,
           "address": "MagicContext1111111111111111111111111111111"
         }
@@ -594,7 +588,7 @@ export type Meinkraft = {
   ],
   "accounts": [
     {
-      "name": "meinkraftAccount",
+      "name": "MeinkraftAccount",
       "discriminator": [
         54,
         101,
@@ -607,7 +601,7 @@ export type Meinkraft = {
       ]
     },
     {
-      "name": "sessionToken",
+      "name": "SessionToken",
       "discriminator": [
         233,
         4,
@@ -623,23 +617,23 @@ export type Meinkraft = {
   "errors": [
     {
       "code": 6000,
-      "name": "noActiveSession",
+      "name": "NoActiveSession",
       "msg": "No active session"
     },
     {
       "code": 6001,
-      "name": "invalidRealm",
+      "name": "InvalidRealm",
       "msg": "Invalid realm name"
     },
     {
       "code": 6002,
-      "name": "invalidAuth",
+      "name": "InvalidAuth",
       "msg": "Invalid authentication"
     }
   ],
   "types": [
     {
-      "name": "meinkraftAccount",
+      "name": "MeinkraftAccount",
       "type": {
         "kind": "struct",
         "fields": [
@@ -652,7 +646,7 @@ export type Meinkraft = {
             "type": "string"
           },
           {
-            "name": "blocksPlaced",
+            "name": "blocks_placed",
             "type": "u64"
           },
           {
@@ -668,7 +662,7 @@ export type Meinkraft = {
             "type": "u64"
           },
           {
-            "name": "gamesPlayed",
+            "name": "games_played",
             "type": "u64"
           },
           {
@@ -679,7 +673,7 @@ export type Meinkraft = {
       }
     },
     {
-      "name": "sessionToken",
+      "name": "SessionToken",
       "type": {
         "kind": "struct",
         "fields": [
@@ -688,19 +682,19 @@ export type Meinkraft = {
             "type": "pubkey"
           },
           {
-            "name": "targetProgram",
+            "name": "target_program",
             "type": "pubkey"
           },
           {
-            "name": "sessionSigner",
+            "name": "session_signer",
             "type": "pubkey"
           },
           {
-            "name": "validUntil",
+            "name": "valid_until",
             "type": "i64"
           }
         ]
       }
     }
   ]
-};
+}

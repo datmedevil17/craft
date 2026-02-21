@@ -1,296 +1,155 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, MintTo, Token};
 use ephemeral_rollups_sdk::anchor::{commit, delegate, ephemeral};
 use ephemeral_rollups_sdk::cpi::DelegateConfig;
 use ephemeral_rollups_sdk::ephem::{commit_accounts, commit_and_undelegate_accounts};
 use session_keys::{session_auth_or, Session, SessionError, SessionToken};
 
-declare_id!("A8qoTZrfzgBCPADBwGQJxva9ymsUkYEnSXXtUik7HvoQ");
+declare_id!("72WYk7b352n3SFb3k1qGmPnKDY2dUvr5rgK55RNa14Yt");
 
 // ============================================================
 //  Constants
 // ============================================================
-const MAX_REALM_LEN: usize = 16; // "Jungle" | "Desert" | "Snow"
+const MAX_REALM_LEN: usize = 16;
 
 #[ephemeral]
 #[program]
 pub mod meinkraft {
     use super::*;
 
-    // ----------------------------------------------------------
-    //  BASE LAYER — called once per player (Solana devnet/main)
-    // ----------------------------------------------------------
-
-    /// Create the player's persistent profile.
-    /// Seeds: [b"profile", authority]
-    pub fn initialize_profile(ctx: Context<InitializeProfile>) -> Result<()> {
-        let profile = &mut ctx.accounts.profile;
-        profile.authority = ctx.accounts.authority.key();
-        profile.total_blocks_placed = 0;
-        profile.total_attacks = 0;
-        profile.total_kills = 0;
-        profile.total_score = 0;
-        profile.games_played = 0;
-        msg!("Profile initialised for {}", profile.authority);
+    /// Initialize a new Meinkraft player account
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account = &mut ctx.accounts.meinkraft_account;
+        account.authority = ctx.accounts.authority.key();
+        account.blocks_placed = 0;
+        account.attacks = 0;
+        account.kills = 0;
+        account.score = 0;
+        account.games_played = 0;
+        account.active = false;
+        msg!("Meinkraft account initialized for {}", account.authority);
         Ok(())
     }
 
-    /// Delegate the GameSession PDA to the MagicBlock Ephemeral Rollup.
-    /// Must be called on the BASE LAYER before starting a game session.
-    /// The `#[delegate]` macro injects the delegation infrastructure accounts.
-    pub fn delegate_session(ctx: Context<DelegateSession>) -> Result<()> {
-        ctx.accounts.delegate_pda(
-            &ctx.accounts.payer,
-            &[
-                b"session",
-                ctx.accounts.payer.key().as_ref(),
-            ],
-            DelegateConfig {
-                validator: ctx.remaining_accounts.first().map(|a| a.key()),
-                ..Default::default()
-            },
-        )?;
-        msg!("GameSession delegated to ER");
-        Ok(())
-    }
-
-    /// Undelegate the GameSession PDA from the ER and commit final state.
-    /// Must be called on the BASE LAYER to settle scores back to base.
-    pub fn undelegate_session<'info>(ctx: Context<'_, '_, '_, 'info, CommitSession<'info>>) -> Result<()> {
-        require!(
-            !ctx.accounts.game_session.active,
-            GameError::SessionStillActive
-        );
-
-        // --- NFT Settlement ---
-        // Perform minting for all pending kills recorded during the ER session.
-        // We expect the frontend to pass [Mint, PlayerATA] pairs in remaining_accounts.
-        let pending_mints = ctx.accounts.game_session.pending_mints.clone();
-        let remaining_accounts = ctx.remaining_accounts;
-        
-        // Use a simple seeds-based PDA as the mint authority
-        let seeds: &[&[u8]] = &[b"mint_authority"];
-        let (_, bump) = Pubkey::find_program_address(seeds, ctx.program_id);
-        let signer_seeds: &[&[&[u8]]] = &[&[b"mint_authority", &[bump]]];
-
-        for pending in pending_mints {
-            if pending.count == 0 { continue; }
-
-            // Find matching mint and ATA in remaining accounts
-            let mut mint_account = None;
-            let mut ata_account = None;
-
-            // A more robust way to find accounts in remaining_accounts:
-            // Expecting [Mint1, ATA1, Mint2, ATA2, ...]
-            for i in 0..remaining_accounts.len() {
-                if remaining_accounts[i].key() == pending.mint {
-                    mint_account = Some(remaining_accounts[i].clone());
-                    if i + 1 < remaining_accounts.len() {
-                        ata_account = Some(remaining_accounts[i+1].clone());
-                    }
-                    break;
-                }
-            }
-
-            if let (Some(mint), Some(ata)) = (mint_account, ata_account) {
-                let cpi_accounts = MintTo {
-                    mint,
-                    to: ata,
-                    authority: ctx.accounts.mint_authority.to_account_info(),
-                };
-                let cpi_program = ctx.accounts.token_program.to_account_info();
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
-                token::mint_to(cpi_ctx, pending.count as u64)?;
-                msg!("Minted {} tokens for mint {}", pending.count, pending.mint);
-            }
-        }
-
-        // Snapshot session values before taking the mutable profile borrow
-        let blocks = ctx.accounts.game_session.blocks_placed as u64;
-        let attacks = ctx.accounts.game_session.attacks as u64;
-        let kills   = ctx.accounts.game_session.kills as u64;
-        let score   = ctx.accounts.game_session.score;
-        let authority = ctx.accounts.profile.authority;
-
-        {
-            let profile = &mut ctx.accounts.profile;
-            profile.total_blocks_placed = profile.total_blocks_placed.saturating_add(blocks);
-            profile.total_attacks       = profile.total_attacks.saturating_add(attacks);
-            profile.total_kills         = profile.total_kills.saturating_add(kills);
-            profile.total_score         = profile.total_score.saturating_add(score);
-            profile.games_played        = profile.games_played.saturating_add(1);
-        } // mutable borrow on profile ends here
-
-        // Commit + undelegate — both accounts passed by shared ref now
-        commit_and_undelegate_accounts(
-            &ctx.accounts.payer,
-            vec![
-                &ctx.accounts.game_session.to_account_info(),
-                &ctx.accounts.profile.to_account_info(),
-            ],
-            &ctx.accounts.magic_context,
-            &ctx.accounts.magic_program,
-        )?;
-        msg!(
-            "Session for {} undelegated. Session score: {}",
-            authority,
-            score
-        );
-        Ok(())
-    }
-
-    // ----------------------------------------------------------
-    //  EPHEMERAL ROLLUP HOT-PATH
-    //  All instructions below run on the ER and use session keys
-    //  so the player never signs individual txs manually.
-    // ----------------------------------------------------------
-
-    /// Start a game session.
-    /// Resets session counters and marks session as active.
-    /// Called on the ER after delegation.
+    /// Enter the game session
     pub fn enter_game(ctx: Context<GameAction>, realm: String) -> Result<()> {
         require!(realm.len() <= MAX_REALM_LEN, GameError::InvalidRealm);
-        let session = &mut ctx.accounts.game_session;
-        require!(!session.active, GameError::SessionAlreadyActive);
-        session.authority = ctx.accounts.profile.authority;
-        session.realm = realm.clone();
-        session.blocks_placed = 0;
-        session.attacks = 0;
-        session.kills = 0;
-        session.score = 0;
-        session.pending_mints = Vec::new();
-        session.active = true;
+        let account = &mut ctx.accounts.meinkraft_account;
+        account.realm = realm.clone();
+        account.active = true;
         msg!("Game entered. Realm: {}", realm);
         Ok(())
     }
 
-    /// Record a block placement event.
-    /// Each call is one tx on the ER (cheap, fast, gasless for the player).
+    /// Record a block placement event
     #[session_auth_or(
-        ctx.accounts.profile.authority == ctx.accounts.signer.key(),
+        ctx.accounts.meinkraft_account.authority == ctx.accounts.signer.key(),
         GameError::InvalidAuth
     )]
     pub fn place_block(ctx: Context<GameAction>, block_type: String) -> Result<()> {
-        let session = &mut ctx.accounts.game_session;
-        require!(session.active, GameError::NoActiveSession);
-        session.blocks_placed = session.blocks_placed.saturating_add(1);
-        session.score = session.score.saturating_add(1);
-        msg!("Block placed: {}. Total: {}", block_type, session.blocks_placed);
+        let account = &mut ctx.accounts.meinkraft_account;
+        require!(account.active, GameError::NoActiveSession);
+        account.blocks_placed = account.blocks_placed.saturating_add(1);
+        account.score = account.score.saturating_add(1);
+        msg!("Block placed: {}. Total: {}", block_type, account.blocks_placed);
         Ok(())
     }
 
-    /// Record an attack event (player hits an entity).
-    /// Each swing is one tx on the ER.
+    /// Record an attack event
     #[session_auth_or(
-        ctx.accounts.profile.authority == ctx.accounts.signer.key(),
+        ctx.accounts.meinkraft_account.authority == ctx.accounts.signer.key(),
         GameError::InvalidAuth
     )]
     pub fn attack(ctx: Context<GameAction>, target_type: String, damage: u8) -> Result<()> {
-        let session = &mut ctx.accounts.game_session;
-        require!(session.active, GameError::NoActiveSession);
-        session.attacks = session.attacks.saturating_add(1);
-        // Award partial score for hitting (full score on kill)
-        session.score = session.score.saturating_add(damage as u64 / 2);
-        msg!(
-            "Attack on {}. Damage: {}. Total attacks: {}",
-            target_type,
-            damage,
-            session.attacks
-        );
+        let account = &mut ctx.accounts.meinkraft_account;
+        require!(account.active, GameError::NoActiveSession);
+        account.attacks = account.attacks.saturating_add(1);
+        account.score = account.score.saturating_add(damage as u64 / 2);
+        msg!("Attack on {}. Damage: {}. Total: {}", target_type, damage, account.attacks);
         Ok(())
     }
 
-    /// Record an entity kill (animal or enemy).
-    /// Called when an entity's health reaches zero.
+    /// Record an entity kill
     #[session_auth_or(
-        ctx.accounts.profile.authority == ctx.accounts.signer.key(),
+        ctx.accounts.meinkraft_account.authority == ctx.accounts.signer.key(),
         GameError::InvalidAuth
     )]
-    pub fn kill_entity(
-        ctx: Context<GameAction>,
-        entity_type: String,
-        score_reward: u64,
-    ) -> Result<()> {
-        let session = &mut ctx.accounts.game_session;
-        require!(session.active, GameError::NoActiveSession);
-        session.kills = session.kills.saturating_add(1);
-        session.score = session.score.saturating_add(score_reward);
-
-        // Record pending mint
-        if let Some(mint_str) = entity_type.split(':').last() {
-             if let Ok(mint_pubkey) = Pubkey::try_from(mint_str) {
-                if let Some(entry) = session.pending_mints.iter_mut().find(|m| m.mint == mint_pubkey) {
-                    entry.count = entry.count.saturating_add(1);
-                } else if session.pending_mints.len() < 10 {
-                    session.pending_mints.push(PendingMint {
-                        mint: mint_pubkey,
-                        count: 1,
-                    });
-                }
-             }
-        }
-
-        msg!(
-            "Killed {}. Reward: {}. Total kills: {}",
-            entity_type,
-            score_reward,
-            session.kills
-        );
+    pub fn kill_entity(ctx: Context<GameAction>, entity_type: String, score_reward: u64) -> Result<()> {
+        let account = &mut ctx.accounts.meinkraft_account;
+        require!(account.active, GameError::NoActiveSession);
+        account.kills = account.kills.saturating_add(1);
+        account.score = account.score.saturating_add(score_reward);
+        msg!("Killed {}. Reward: {}. Total kills: {}", entity_type, score_reward, account.kills);
         Ok(())
     }
 
-    /// End the active game session.
-    /// Marks session inactive so it can be undelegated safely.
+    /// End the active game session
     #[session_auth_or(
-        ctx.accounts.profile.authority == ctx.accounts.signer.key(),
+        ctx.accounts.meinkraft_account.authority == ctx.accounts.signer.key(),
         GameError::InvalidAuth
     )]
     pub fn end_game(ctx: Context<GameAction>) -> Result<()> {
-        let session = &mut ctx.accounts.game_session;
-        require!(session.active, GameError::NoActiveSession);
-        session.active = false;
-        msg!(
-            "Game ended. Blocks: {} | Attacks: {} | Kills: {} | Score: {}",
-            session.blocks_placed,
-            session.attacks,
-            session.kills,
-            session.score
-        );
+        let account = &mut ctx.accounts.meinkraft_account;
+        require!(account.active, GameError::NoActiveSession);
+        account.active = false;
+        account.games_played = account.games_played.saturating_add(1);
+        msg!("Game ended. Score: {}", account.score);
         Ok(())
     }
 
-    /// Manual commit — persists current ER state to the base layer mid-session
-    /// (optional checkpoint, does NOT end the session or undelegate).
-    pub fn commit_session(ctx: Context<CommitSession>) -> Result<()> {
+    // ========================================
+    // MagicBlock Ephemeral Rollups Functions
+    // ========================================
+
+    /// Delegate the account to the ER
+    pub fn delegate(ctx: Context<DelegateInput>) -> Result<()> {
+        ctx.accounts.delegate_pda(
+            &ctx.accounts.payer,
+            &[ctx.accounts.payer.key().as_ref()],
+            DelegateConfig {
+                validator: ctx.remaining_accounts.first().map(|acc| acc.key()),
+                ..Default::default()
+            },
+        )?;
+        Ok(())
+    }
+
+    /// Manual commit state to base layer
+    pub fn commit(ctx: Context<CommitInput>) -> Result<()> {
         commit_accounts(
             &ctx.accounts.payer,
-            vec![
-                &ctx.accounts.game_session.to_account_info(),
-                &ctx.accounts.profile.to_account_info(),
-            ],
+            vec![&ctx.accounts.meinkraft_account.to_account_info()],
             &ctx.accounts.magic_context,
             &ctx.accounts.magic_program,
         )?;
-        msg!("Session state committed to base layer (checkpoint)");
+        Ok(())
+    }
+
+    /// Undelegate the account from the ER
+    pub fn undelegate(ctx: Context<CommitInput>) -> Result<()> {
+        commit_and_undelegate_accounts(
+            &ctx.accounts.payer,
+            vec![&ctx.accounts.meinkraft_account.to_account_info()],
+            &ctx.accounts.magic_context,
+            &ctx.accounts.magic_program,
+        )?;
         Ok(())
     }
 }
 
-// ============================================================
-//  ACCOUNT CONTEXTS
-// ============================================================
+// ========================================
+// Account Contexts
+// ========================================
 
-/// Initialize the player's permanent on-chain profile.
 #[derive(Accounts)]
-pub struct InitializeProfile<'info> {
+pub struct Initialize<'info> {
     #[account(
-        init,
+        init_if_needed,
         payer = authority,
-        space = 8 + PlayerProfile::INIT_SPACE,
-        seeds = [b"profile", authority.key().as_ref()],
+        space = 8 + MeinkraftAccount::INIT_SPACE,
+        seeds = [authority.key().as_ref()],
         bump
     )]
-    pub profile: Account<'info, PlayerProfile>,
+    pub meinkraft_account: Account<'info, MeinkraftAccount>,
 
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -298,151 +157,66 @@ pub struct InitializeProfile<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Delegate the GameSession PDA to the ER.
-/// The `#[delegate]` macro injects delegation infrastructure accounts.
-#[delegate]
-#[derive(Accounts)]
-pub struct DelegateSession<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
-    /// CHECK: The GameSession PDA to delegate, validated by seeds.
-    #[account(
-        mut,
-        del,
-        seeds = [b"session", payer.key().as_ref()],
-        bump
-    )]
-    pub pda: AccountInfo<'info>,
-}
-
-/// All live game actions (enter, place_block, attack, kill, end).
-/// Uses session keys so the hot-path is gasless for the player.
 #[derive(Accounts, Session)]
 pub struct GameAction<'info> {
     #[account(
         mut,
-        seeds = [b"session", profile.authority.as_ref()],
+        seeds = [meinkraft_account.authority.key().as_ref()],
         bump
     )]
-    pub game_session: Account<'info, GameSession>,
-
-    #[account(
-        mut,
-        seeds = [b"profile", profile.authority.as_ref()],
-        bump
-    )]
-    pub profile: Account<'info, PlayerProfile>,
+    pub meinkraft_account: Account<'info, MeinkraftAccount>,
 
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    /// Session token allows a delegated key to sign on behalf of the player.
-    #[session(
-        signer = signer,
-        authority = profile.authority.key()
-    )]
+    #[session(signer = signer, authority = meinkraft_account.authority.key())]
     pub session_token: Option<Account<'info, SessionToken>>,
 }
 
-/// Commit / undelegate — settles ER state back to the base layer.
-/// The `#[commit]` macro injects magic_context and magic_program accounts.
+#[delegate]
+#[derive(Accounts)]
+pub struct DelegateInput<'info> {
+    pub payer: Signer<'info>,
+    /// CHECK: The PDA to delegate.
+    #[account(mut, del, seeds = [payer.key().as_ref()], bump)]
+    pub pda: AccountInfo<'info>,
+}
+
 #[commit]
 #[derive(Accounts)]
-pub struct CommitSession<'info> {
+pub struct CommitInput<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-
-    #[account(
-        mut,
-        seeds = [b"session", payer.key().as_ref()],
-        bump
-    )]
-    pub game_session: Account<'info, GameSession>,
-
-    #[account(
-        mut,
-        seeds = [b"profile", payer.key().as_ref()],
-        bump
-    )]
-    pub profile: Account<'info, PlayerProfile>,
-
-    /// CHECK: The PDA that has mint authority over the NFTs.
-    /// Seeds: [b"mint_authority"]
-    #[account(
-        seeds = [b"mint_authority"],
-        bump
-    )]
-    pub mint_authority: AccountInfo<'info>,
-
-    pub token_program: Program<'info, Token>,
+    #[account(mut, seeds = [payer.key().as_ref()], bump)]
+    pub meinkraft_account: Account<'info, MeinkraftAccount>,
 }
 
-// ============================================================
-//  ACCOUNT DATA STRUCTS
-// ============================================================
+// ========================================
+// Account Data
+// ========================================
 
-/// Persistent player profile — lives on the base layer forever.
 #[account]
 #[derive(InitSpace)]
-pub struct PlayerProfile {
-    /// The wallet that owns this profile.
+pub struct MeinkraftAccount {
     pub authority: Pubkey,
-    /// Cumulative blocks placed across all sessions.
-    pub total_blocks_placed: u64,
-    /// Cumulative attacks across all sessions.
-    pub total_attacks: u64,
-    /// Cumulative entity kills across all sessions.
-    pub total_kills: u64,
-    /// Cumulative score across all sessions.
-    pub total_score: u64,
-    /// Number of completed games.
-    pub games_played: u16,
-}
-
-/// Ephemeral session state — delegated to ER for the duration of a game.
-/// Settled back to base layer via commit_and_undelegate after each session.
-#[account]
-#[derive(InitSpace)]
-pub struct GameSession {
-    /// Owner of this session.
-    pub authority: Pubkey,
-    /// Active realm ("Jungle" | "Desert" | "Snow").
     #[max_len(16)]
     pub realm: String,
-    /// Blocks placed this session.
-    pub blocks_placed: u32,
-    /// Attacks made this session.
-    pub attacks: u32,
-    /// Entities killed this session.
-    pub kills: u32,
-    /// Score accumulated this session.
+    pub blocks_placed: u64,
+    pub attacks: u64,
+    pub kills: u64,
     pub score: u64,
-    /// Mints to be performed during settlement.
-    #[max_len(10)]
-    pub pending_mints: Vec<PendingMint>,
-    /// Whether a game is currently in progress.
+    pub games_played: u64,
     pub active: bool,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Copy)]
-pub struct PendingMint {
-    pub mint: Pubkey,
-    pub count: u32,
-}
-
-// ============================================================
-//  ERRORS
-// ============================================================
+// ========================================
+// Errors
+// ========================================
 
 #[error_code]
 pub enum GameError {
-    #[msg("No active session — call enter_game first")]
+    #[msg("No active session")]
     NoActiveSession,
-    #[msg("Session already active — call end_game before starting a new one")]
-    SessionAlreadyActive,
-    #[msg("Session is still active — call end_game before undelegating")]
-    SessionStillActive,
     #[msg("Invalid realm name")]
     InvalidRealm,
     #[msg("Invalid authentication")]

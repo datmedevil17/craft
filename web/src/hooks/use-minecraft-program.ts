@@ -3,7 +3,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Program, AnchorProvider, BN, setProvider } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { type Meinkraft } from "../idl/meinkraft";
-import IDL from "../idl/meinkraft.json";
+import IDL from "../idl/meinkraft-idl";
 import { useSessionKeyManager } from "@magicblock-labs/gum-react-sdk";
 import { useCubeStore } from "../useStore";
 
@@ -11,28 +11,14 @@ import { useCubeStore } from "../useStore";
 //  Types
 // ----------------------------------------------------------------
 
-export interface PlayerProfile {
-    authority: PublicKey;
-    totalBlocksPlaced: bigint;
-    totalAttacks: bigint;
-    totalKills: bigint;
-    totalScore: bigint;
-    gamesPlayed: number;
-}
-
-export interface PendingMint {
-    mint: PublicKey;
-    count: number;
-}
-
-export interface GameSession {
+export interface MeinkraftAccount {
     authority: PublicKey;
     realm: string;
-    blocksPlaced: number;
-    attacks: number;
-    kills: number;
+    blocksPlaced: bigint;
+    attacks: bigint;
+    kills: bigint;
     score: bigint;
-    pendingMints: PendingMint[];
+    gamesPlayed: bigint;
     active: boolean;
 }
 
@@ -46,49 +32,25 @@ const PROGRAM_ID = new PublicKey(IDL.address);
 const DELEGATION_PROGRAM_ID = new PublicKey(
     "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
 );
-const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 
 const ER_ENDPOINT = "https://devnet.magicblock.app";
 const ER_WS_ENDPOINT = "wss://devnet.magicblock.app";
 
-// Score rewards for kills (keep in sync with game UI config)
+// Score rewards for kills
 export const KILL_REWARDS: Record<string, number> = {
-    Chick: 5,
-    Chicken: 8,
-    Pig: 10,
-    Sheep: 8,
-    Horse: 12,
-    Wolf: 15,
-    Dog: 12,
-    Cat: 8,
-    Raccoon: 12,
-    Skeleton: 20,
-    Skeleton_Armor: 30,
-    Hedgehog: 15,
-    Giant: 50,
-    Zombie: 25,
-    Demon: 40,
-    Goblin: 15,
-    Yeti: 50,
-    Wizard: 35,
+    Chick: 5, Chicken: 8, Pig: 10, Sheep: 8, Horse: 12, Wolf: 15,
+    Dog: 12, Cat: 8, Raccoon: 12, Skeleton: 20, Skeleton_Armor: 30,
+    Hedgehog: 15, Giant: 50, Zombie: 25, Demon: 40, Goblin: 15,
+    Yeti: 50, Wizard: 35, Cow: 10, Spider: 20,
 };
 
 // ----------------------------------------------------------------
 //  PDA helpers
 // ----------------------------------------------------------------
 
-function deriveProfilePDA(authority: PublicKey): PublicKey {
+function deriveMeinkraftPDA(authority: PublicKey): PublicKey {
     const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("profile"), authority.toBuffer()],
-        PROGRAM_ID
-    );
-    return pda;
-}
-
-function deriveSessionPDA(authority: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("session"), authority.toBuffer()],
+        [authority.toBuffer()],
         PROGRAM_ID
     );
     return pda;
@@ -98,679 +60,254 @@ function deriveSessionPDA(authority: PublicKey): PublicKey {
 //  Hook
 // ----------------------------------------------------------------
 
-/**
- * useMinecraftProgram
- *
- * Provides all on-chain interactions for Meinkraft:
- *   Base layer: initializeProfile, delegateSession
- *   ER hot-path (session-keyed): enterGame, placeBlock, attack,
- *                                killEntity, endGame, commitSession
- *   Settle:     undelegateSession
- */
 export function useMinecraftProgram() {
-    // Add a version log to verify stale code issues
     useEffect(() => {
-        console.log("[Status] useMinecraftProgram hook loaded (v3 - reference-aligned)");
+        console.log("[Status] useMinecraftProgram loaded (v5 - IDL-aligned)");
     }, []);
 
     const { connection } = useConnection();
     const wallet = useWallet();
 
     // ---- State ----
-    const [profilePubkey, setProfilePubkey] = useState<PublicKey | null>(null);
-    const [sessionPubkey, setSessionPubkey] = useState<PublicKey | null>(null);
-    const [profile, setProfile] = useState<PlayerProfile | null>(null);
-    const [gameSession, setGameSession] = useState<GameSession | null>(null);
+    const [meinkraftPubkey, setMeinkraftPubkey] = useState<PublicKey | null>(null);
+    const [account, setAccount] = useState<MeinkraftAccount | null>(null);
+    const [erAccount, setErAccount] = useState<MeinkraftAccount | null>(null);
     const [delegationStatus, setDelegationStatus] = useState<DelegationStatus>("checking");
-    const [erGameSession, setErGameSession] = useState<GameSession | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isDelegating, setIsDelegating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // ---- Base layer Anchor provider + program ----
+    // ---- Base layer Program ----
     const program = useMemo(() => {
-        if (!wallet.publicKey || !wallet.signTransaction || !wallet.signAllTransactions) {
-            return null;
-        }
-        const provider = new AnchorProvider(
-            connection,
-            {
-                publicKey: wallet.publicKey,
-                signTransaction: wallet.signTransaction,
-                signAllTransactions: wallet.signAllTransactions,
-            },
-            { commitment: "confirmed" }
-        );
+        if (!wallet.publicKey || !wallet.signTransaction || !wallet.signAllTransactions) return null;
+        const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
         setProvider(provider);
         return new Program<Meinkraft>(IDL as Meinkraft, provider);
-    }, [connection, wallet.publicKey, wallet.signTransaction, wallet.signAllTransactions]);
+    }, [connection, wallet]);
 
-    // ---- Ephemeral Rollup connection + provider + program ----
-    const erConnection = useMemo(() => {
-        return new Connection(ER_ENDPOINT, {
-            wsEndpoint: ER_WS_ENDPOINT,
-            commitment: "confirmed",
-        });
-    }, []);
+    // ---- ER connection ----
+    const erConnection = useMemo(() =>
+        new Connection(ER_ENDPOINT, { wsEndpoint: ER_WS_ENDPOINT, commitment: "confirmed" }),
+        []);
 
-    const erProvider = useMemo(() => {
-        if (!wallet.publicKey || !wallet.signTransaction || !wallet.signAllTransactions) {
-            return null;
-        }
-        return new AnchorProvider(
-            erConnection,
-            {
-                publicKey: wallet.publicKey,
-                signTransaction: wallet.signTransaction,
-                signAllTransactions: wallet.signAllTransactions,
-            },
-            { commitment: "confirmed" }
-        );
-    }, [erConnection, wallet.publicKey, wallet.signTransaction, wallet.signAllTransactions]);
-
-    // ---- Session Key Manager ----
     const sessionWallet = useSessionKeyManager(wallet as any, connection, "devnet");
     const { sessionToken, createSession: sdkCreateSession, isLoading: isSessionLoading } = sessionWallet;
+    const createSession = useCallback(() => sdkCreateSession(PROGRAM_ID), [sdkCreateSession]);
 
-    const createSession = useCallback(async () => {
-        return await sdkCreateSession(PROGRAM_ID);
-    }, [sdkCreateSession]);
-
+    // ---- ER Program (Anchor 0.30+) ----
     const erProgram = useMemo(() => {
-        if (!erConnection) return null;
-
-        // Use session wallet as signer on ER if available
         const hasSession = sessionToken != null && sessionWallet?.publicKey != null;
-        const signerWallet = hasSession
-            ? sessionWallet
-            : (wallet.publicKey && wallet.signTransaction && wallet.signAllTransactions)
-                ? {
-                    publicKey: wallet.publicKey,
-                    signTransaction: wallet.signTransaction,
-                    signAllTransactions: wallet.signAllTransactions,
-                }
-                : null;
-
-        if (!signerWallet) return null;
-
-        const provider = new AnchorProvider(
-            erConnection,
-            signerWallet as any,
-            { commitment: "confirmed" }
-        );
+        const signer = hasSession ? sessionWallet : (wallet.publicKey ? wallet : null);
+        if (!signer) return null;
+        const provider = new AnchorProvider(erConnection, signer as any, { commitment: "confirmed" });
         return new Program<Meinkraft>(IDL as Meinkraft, provider);
-    }, [erConnection, wallet.publicKey, wallet.signTransaction, wallet.signAllTransactions, sessionToken, sessionWallet]);
+    }, [erConnection, wallet, sessionToken, sessionWallet]);
 
-    // ---- Derive PDAs when wallet connects ----
+    // ---- Derive PDA ----
     useEffect(() => {
         if (wallet.publicKey) {
-            setProfilePubkey(deriveProfilePDA(wallet.publicKey));
-            setSessionPubkey(deriveSessionPDA(wallet.publicKey));
+            setMeinkraftPubkey(deriveMeinkraftPDA(wallet.publicKey));
         } else {
-            setProfilePubkey(null);
-            setSessionPubkey(null);
-            setProfile(null);
-            setGameSession(null);
+            setMeinkraftPubkey(null);
+            setAccount(null);
+            setErAccount(null);
             setDelegationStatus("checking");
         }
     }, [wallet.publicKey]);
 
-    // ---- Fetch helpers ----
-    const fetchProfile = useCallback(async () => {
-        if (!program || !profilePubkey) { setProfile(null); return; }
+    // ---- Fetchers ----
+    const fetchAccount = useCallback(async () => {
+        if (!program || !meinkraftPubkey) return;
         try {
-            const acc = await program.account.playerProfile.fetch(profilePubkey);
-            setProfile({
+            const acc = await program.account.meinkraftAccount.fetch(meinkraftPubkey);
+            setAccount({
                 authority: acc.authority,
-                totalBlocksPlaced: BigInt(acc.totalBlocksPlaced.toString()),
-                totalAttacks: BigInt(acc.totalAttacks.toString()),
-                totalKills: BigInt(acc.totalKills.toString()),
-                totalScore: BigInt(acc.totalScore.toString()),
-                gamesPlayed: acc.gamesPlayed,
+                realm: acc.realm,
+                blocksPlaced: BigInt(acc.blocksPlaced.toString()),
+                attacks: BigInt(acc.attacks.toString()),
+                kills: BigInt(acc.kills.toString()),
+                score: BigInt(acc.score.toString()),
+                gamesPlayed: BigInt(acc.gamesPlayed.toString()),
+                active: acc.active,
             });
         } catch (err) {
-            console.debug("Profile not found (new wallet):", err);
-            setProfile(null);
+            console.debug("Meinkraft account not found:", err);
+            setAccount(null);
         }
-    }, [program, profilePubkey]);
+    }, [program, meinkraftPubkey]);
 
-    const fetchSession = useCallback(async () => {
-        if (!program || !sessionPubkey) { setGameSession(null); return; }
+    const fetchErAccount = useCallback(async () => {
+        if (!erProgram || !meinkraftPubkey) return;
         try {
-            const acc = await program.account.gameSession.fetch(sessionPubkey);
-            setGameSession({
+            const acc = await erProgram.account.meinkraftAccount.fetch(meinkraftPubkey, "confirmed");
+            setErAccount({
                 authority: acc.authority,
                 realm: acc.realm,
-                blocksPlaced: acc.blocksPlaced,
-                attacks: acc.attacks,
-                kills: acc.kills,
+                blocksPlaced: BigInt(acc.blocksPlaced.toString()),
+                attacks: BigInt(acc.attacks.toString()),
+                kills: BigInt(acc.kills.toString()),
                 score: BigInt(acc.score.toString()),
-                pendingMints: acc.pendingMints || [],
+                gamesPlayed: BigInt(acc.gamesPlayed.toString()),
                 active: acc.active,
             });
-        } catch {
-            setGameSession(null);
-        }
-    }, [program, sessionPubkey]);
+        } catch { setErAccount(null); }
+    }, [erProgram, meinkraftPubkey]);
 
-    const fetchErSession = useCallback(async () => {
-        if (!erProgram || !sessionPubkey) { setErGameSession(null); return; }
-        try {
-            const acc = await erProgram.account.gameSession.fetch(sessionPubkey);
-            setErGameSession({
-                authority: acc.authority,
-                realm: acc.realm,
-                blocksPlaced: acc.blocksPlaced,
-                attacks: acc.attacks,
-                kills: acc.kills,
-                score: BigInt(acc.score.toString()),
-                pendingMints: acc.pendingMints || [],
-                active: acc.active,
-            });
-        } catch {
-            setErGameSession(null);
-        }
-    }, [erProgram, sessionPubkey]);
-
-    // ---- Delegation status check ----
-    const checkDelegationStatus = useCallback(async (currentOwner?: PublicKey) => {
-        if (!sessionPubkey) { setDelegationStatus("checking"); return; }
+    const checkDelegation = useCallback(async (currentOwner?: PublicKey) => {
+        if (!meinkraftPubkey) return;
         try {
             let owner = currentOwner;
             if (!owner) {
-                const info = await connection.getAccountInfo(sessionPubkey);
-                if (!info) {
-                    setDelegationStatus("undelegated");
-                    return;
-                }
+                const info = await connection.getAccountInfo(meinkraftPubkey);
+                if (!info) { setDelegationStatus("undelegated"); return; }
                 owner = info.owner;
             }
-
-            const isDelegatedNow = owner.equals(DELEGATION_PROGRAM_ID);
-            const newStatus = isDelegatedNow ? "delegated" : "undelegated";
-
+            const isDelegated = owner.equals(DELEGATION_PROGRAM_ID);
+            const status = isDelegated ? "delegated" : "undelegated";
             setDelegationStatus(prev => {
-                if (prev !== newStatus) {
-                    console.log(`[Status] Delegation changed: ${newStatus.toUpperCase()} (Owner: ${owner?.toBase58()})`);
+                if (prev !== status || true) { // Force log for visibility
+                    console.log(`[Status] Account Owner: ${owner?.toBase58()}`);
+                    console.log(`[Status] Delegation: ${status.toUpperCase()}`);
                 }
-                return newStatus;
+                return status;
             });
+            if (isDelegated) fetchErAccount();
+            else setErAccount(null);
+        } catch (err) { console.error("Check delegation failed:", err); }
+    }, [meinkraftPubkey, connection, fetchErAccount]);
 
-            // If delegated, fetch from ER
-            if (isDelegatedNow && erProgram) {
-                try {
-                    const acc = await erProgram.account.gameSession.fetch(sessionPubkey);
-                    setErGameSession({
-                        authority: acc.authority,
-                        realm: acc.realm,
-                        blocksPlaced: acc.blocksPlaced,
-                        attacks: acc.attacks,
-                        kills: acc.kills,
-                        score: BigInt(acc.score.toString()),
-                        pendingMints: acc.pendingMints || [],
-                        active: acc.active,
-                    });
-                } catch {
-                    console.debug("Could not fetch ER session data (normal during transitions)");
-                }
-            } else if (!isDelegatedNow) {
-                setErGameSession(null);
-            }
-        } catch (err) {
-            console.error("Error checking delegation status:", err);
-            setDelegationStatus("undelegated");
-        }
-    }, [sessionPubkey, connection, erProgram]);
-
-    // ---- Base-layer subscriptions ----
+    // ---- Subscriptions ----
     useEffect(() => {
-        if (!program || !profilePubkey || !sessionPubkey) return;
+        if (!program || !meinkraftPubkey) return;
+        fetchAccount();
+        checkDelegation();
+        const sub = connection.onAccountChange(meinkraftPubkey, (info) => {
+            fetchAccount();
+            checkDelegation(info.owner);
+        }, "confirmed");
+        return () => { connection.removeAccountChangeListener(sub); };
+    }, [program, meinkraftPubkey, connection]);
 
-        fetchProfile();
-        fetchSession();
-        checkDelegationStatus();
-
-        const profileSub = connection.onAccountChange(
-            profilePubkey,
-            async (info) => {
-                try {
-                    const dec = program.coder.accounts.decode("playerProfile", info.data);
-                    setProfile({
-                        authority: dec.authority,
-                        totalBlocksPlaced: BigInt(dec.totalBlocksPlaced.toString()),
-                        totalAttacks: BigInt(dec.totalAttacks.toString()),
-                        totalKills: BigInt(dec.totalKills.toString()),
-                        totalScore: BigInt(dec.totalScore.toString()),
-                        gamesPlayed: dec.gamesPlayed,
-                    });
-                } catch (e) { console.error("Failed to decode profile:", e); }
-            },
-            "confirmed"
-        );
-
-        const sessionSub = connection.onAccountChange(
-            sessionPubkey,
-            async (info) => {
-                try {
-                    const dec = program.coder.accounts.decode("gameSession", info.data);
-                    setGameSession({
-                        authority: dec.authority,
-                        realm: dec.realm,
-                        blocksPlaced: dec.blocksPlaced,
-                        attacks: dec.attacks,
-                        kills: dec.kills,
-                        score: BigInt(dec.score.toString()),
-                        pendingMints: dec.pendingMints || [],
-                        active: dec.active,
-                    });
-                } catch (e) { console.error("Failed to decode session:", e); }
-                // Recheck delegation status whenever the base-layer session account changes
-                await checkDelegationStatus(info.owner);
-            },
-            "confirmed"
-        );
-
-        return () => {
-            connection.removeAccountChangeListener(profileSub);
-            connection.removeAccountChangeListener(sessionSub);
-        };
-    }, [program, profilePubkey, sessionPubkey, connection, fetchProfile, fetchSession, checkDelegationStatus]);
-
-    // ---- ER session subscription (when delegated) ----
     useEffect(() => {
-        if (!erProgram || !sessionPubkey || delegationStatus !== "delegated") return;
-
-        const sub = erConnection.onAccountChange(
-            sessionPubkey,
-            async (info) => {
-                try {
-                    const dec = erProgram.coder.accounts.decode("gameSession", info.data);
-                    setErGameSession({
-                        authority: dec.authority,
-                        realm: dec.realm,
-                        blocksPlaced: dec.blocksPlaced,
-                        attacks: dec.attacks,
-                        kills: dec.kills,
-                        score: BigInt(dec.score.toString()),
-                        pendingMints: dec.pendingMints || [],
-                        active: dec.active,
-                    });
-                } catch (e) { console.error("Failed to decode ER session:", e); }
-            },
-            "confirmed"
-        );
-
+        if (!erProgram || !meinkraftPubkey || delegationStatus !== "delegated") return;
+        const sub = erConnection.onAccountChange(meinkraftPubkey, () => fetchErAccount(), "confirmed");
         return () => { erConnection.removeAccountChangeListener(sub); };
-    }, [erProgram, sessionPubkey, erConnection, delegationStatus]);
+    }, [erProgram, meinkraftPubkey, erConnection, delegationStatus, fetchErAccount]);
 
-    // ================================================================
-    //  Helper: send a signed tx directly to the Ephemeral Rollup
-    //  Supports session-key signing (no wallet popup for each action).
-    // ================================================================
-    const sendErTx = useCallback(async (
-        methodBuilder: ReturnType<Program<Meinkraft>["methods"][keyof Program<Meinkraft>["methods"]]>,
-        actionName: string,
-        extraAccounts: Record<string, PublicKey | null> = {}
-    ): Promise<string> => {
-        if (!erProgram || !erProvider || !wallet.publicKey) {
-            throw new Error("ER Program not loaded or wallet not connected");
-        }
-
+    // ---- Actions ----
+    const sendErTx = useCallback(async (methodBuilder: any, actionName: string) => {
+        if (!erProgram || !wallet.publicKey) throw new Error("Not ready");
         setIsLoading(true);
-        setError(null);
-
         try {
             const hasSession = sessionToken != null && sessionWallet?.publicKey != null;
             const signer = hasSession ? sessionWallet.publicKey! : wallet.publicKey;
-
-            let tx = await (methodBuilder as any)
+            let tx = await methodBuilder
                 .accounts({
                     signer,
                     sessionToken: hasSession ? sessionToken : null,
-                    gameSession: sessionPubkey,
-                    profile: profilePubkey,
-                    ...extraAccounts,
+                    meinkraftAccount: meinkraftPubkey
                 })
                 .transaction();
 
             tx.recentBlockhash = (await erConnection.getLatestBlockhash()).blockhash;
+            tx.feePayer = signer;
+            tx = await (hasSession ? sessionWallet.signTransaction!(tx) : wallet.signTransaction!(tx));
 
-            if (hasSession && sessionWallet?.signTransaction) {
-                tx.feePayer = sessionWallet.publicKey!;
-                tx = await sessionWallet.signTransaction(tx);
-            } else {
-                tx.feePayer = wallet.publicKey;
-                tx = await erProvider.wallet.signTransaction(tx);
-            }
-
-            const txHash = await erConnection.sendRawTransaction(tx.serialize(), {
-                skipPreflight: true,
-            });
+            const txHash = await erConnection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
             await erConnection.confirmTransaction(txHash, "confirmed");
-
-            // 🍞 Toast
             useCubeStore.getState().addToast(txHash, actionName);
-
-            // Refresh live ER state
-            await fetchErSession();
-
+            await fetchErAccount();
             return txHash;
         } catch (err) {
-            const msg = err instanceof Error ? err.message : `Failed to ${actionName} on ER`;
-            setError(msg);
+            console.error(`ER Tx Error (${actionName}):`, err);
+            setError(err instanceof Error ? err.message : "Error");
             throw err;
         } finally {
             setIsLoading(false);
         }
-    }, [erProgram, erProvider, erConnection, wallet.publicKey, sessionToken, sessionWallet, fetchErSession]);
+    }, [erProgram, wallet, sessionToken, sessionWallet, meinkraftPubkey, erConnection, fetchErAccount]);
 
-    // ================================================================
-    //  BASE LAYER INSTRUCTIONS
-    // ================================================================
-
-    /**
-     * Create the player's on-chain profile (once per wallet).
-     */
-    const initializeProfile = useCallback(async (): Promise<string> => {
-        if (!program || !wallet.publicKey) throw new Error("Wallet not connected");
+    const initialize = useCallback(async () => {
+        if (!program || !wallet.publicKey) return;
         setIsLoading(true);
-        setError(null);
         try {
             const tx = await program.methods
-                .initializeProfile()
+                .initialize()
                 .accounts({ authority: wallet.publicKey })
                 .rpc();
-            useCubeStore.getState().addToast(tx, "Initialize Profile");
-            await fetchProfile();
-            return tx;
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : "Failed to initialize profile";
-            setError(msg);
-            throw err;
-        } finally {
-            setIsLoading(false);
-        }
-    }, [program, wallet.publicKey, fetchProfile]);
+            useCubeStore.getState().addToast(tx, "Initialize");
+            await fetchAccount();
+        } finally { setIsLoading(false); }
+    }, [program, wallet.publicKey, fetchAccount]);
 
-    /**
-     * Delegate the GameSession PDA to the MagicBlock Ephemeral Rollup.
-     * Call this on devnet BEFORE entering the game.
-     */
-    const delegateSession = useCallback(async (): Promise<string> => {
-        if (!program || !wallet.publicKey) throw new Error("Wallet not connected");
-        setIsLoading(true);
-        setIsDelegating(true);
-        setError(null);
+    const delegateSession = useCallback(async () => {
+        if (!program || !wallet.publicKey) return;
+        setIsLoading(true); setIsDelegating(true);
         try {
             const tx = await program.methods
-                .delegateSession()
+                .delegate()
                 .accounts({ payer: wallet.publicKey })
                 .rpc({ skipPreflight: true });
-
-            useCubeStore.getState().addToast(tx, "Delegate Session");
-            console.log("Session successfully delegated to ER cluster.");
-
-            // Wait a bit for delegation to propagate across the network
+            useCubeStore.getState().addToast(tx, "Delegate");
             await new Promise(r => setTimeout(r, 2000));
-            await checkDelegationStatus();
-            return tx;
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : "Failed to delegate session";
-            setError(msg);
-            throw err;
-        } finally {
-            setIsLoading(false);
-            setIsDelegating(false);
-        }
-    }, [program, wallet.publicKey, checkDelegationStatus]);
+            await checkDelegation();
+        } finally { setIsLoading(false); setIsDelegating(false); }
+    }, [program, wallet.publicKey, checkDelegation]);
 
-    // ================================================================
-    //  EPHEMERAL ROLLUP HOT-PATH INSTRUCTIONS
-    //  These run on the ER and are signed by the session key,
-    //  so the player's main wallet is NOT prompted.
-    // ================================================================
+    const enterGame = (realm: string) => sendErTx(erProgram?.methods.enterGame(realm), "Enter Game");
+    const placeBlock = (type: string) => sendErTx(erProgram?.methods.placeBlock(type), "Place Block");
+    const attack = (type: string, dmg: number) => sendErTx(erProgram?.methods.attack(type, dmg), "Attack");
+    const killEntity = (type: string, reward: number) => sendErTx(erProgram?.methods.killEntity(type, new BN(reward)), "Kill Entity");
+    const endGame = () => sendErTx(erProgram?.methods.endGame(), "End Game");
 
-    /**
-     * Enter the game on the ER. Resets session state and marks active.
-     * @param realm "Jungle" | "Desert" | "Snow"
-     */
-    const enterGame = useCallback(async (realm: string): Promise<string> => {
-        if (!erProgram) throw new Error("ER Program not loaded");
-        return sendErTx(erProgram.methods.enterGame(realm), "enterGame");
-    }, [erProgram, sendErTx]);
-
-    /**
-     * Record placing a block. Fires once per block placed in-game.
-     * @param blockType e.g. "Block_Grass", "Block_Stone"
-     */
-    const placeBlock = useCallback(async (blockType: string): Promise<string> => {
-        if (!erProgram) throw new Error("ER Program not loaded");
-        return sendErTx(erProgram.methods.placeBlock(blockType), "placeBlock");
-    }, [erProgram, sendErTx]);
-
-    /**
-     * Record an attack on an entity.
-     * @param targetType entity name, e.g. "Wolf", "Skeleton"
-     * @param damage damage dealt (1–255)
-     */
-    const attack = useCallback(async (targetType: string, damage: number): Promise<string> => {
-        if (!erProgram) throw new Error("ER Program not loaded");
-        return sendErTx(
-            erProgram.methods.attack(targetType, damage),
-            "attack"
-        );
-    }, [erProgram, sendErTx]);
-
-    /**
-     * Record an entity kill and award score.
-     * @param entityType entity name, e.g. "Wolf"
-     * @param scoreReward points to award (use KILL_REWARDS or custom)
-     * @param mintPubkey Token mint address for the NFT
-     */
-    const killEntity = useCallback(async (
-        entityType: string,
-        scoreReward?: number,
-        mintPubkey?: PublicKey
-    ): Promise<string> => {
-        if (!erProgram) throw new Error("ER Program not loaded");
-        const reward = scoreReward ?? KILL_REWARDS[entityType] ?? 10;
-
-        // Append mint pubkey to entity type if provided so the program can extract it
-        const typeWithMint = mintPubkey
-            ? `${entityType}:${mintPubkey.toBase58()}`
-            : entityType;
-
-        return sendErTx(
-            erProgram.methods.killEntity(typeWithMint, new BN(reward)),
-            "killEntity"
-        );
-    }, [erProgram, sendErTx]);
-
-    /**
-     * End the active game session (runs on ER).
-     * Must be called before undelegating.
-     */
-    const endGame = useCallback(async (): Promise<string> => {
-        if (!erProgram) throw new Error("ER Program not loaded");
-        return sendErTx(erProgram.methods.endGame(), "endGame");
-    }, [erProgram, sendErTx]);
-
-    // ================================================================
-    //  COMMIT / UNDELEGATE
-    // ================================================================
-
-    /**
-     * Mid-session checkpoint — persists current ER state to base layer
-     * without ending the session.
-     */
-    const commitSession = useCallback(async (): Promise<string> => {
-        if (!program || !erProvider || !wallet.publicKey) {
-            throw new Error("Program not loaded or not delegated");
-        }
+    const commitSession = useCallback(async () => {
+        if (!program || !wallet.publicKey) return;
         setIsLoading(true);
-        setError(null);
         try {
             let tx = await program.methods
-                .commitSession()
+                .commit()
                 .accounts({ payer: wallet.publicKey })
                 .transaction();
 
-            tx.feePayer = wallet.publicKey;
             tx.recentBlockhash = (await erConnection.getLatestBlockhash()).blockhash;
-            tx = await erProvider.wallet.signTransaction(tx);
+            tx.feePayer = wallet.publicKey;
+            tx = await wallet.signTransaction!(tx);
 
-            const txHash = await erConnection.sendRawTransaction(tx.serialize(), {
-                skipPreflight: true,
-            });
+            const txHash = await erConnection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
             await erConnection.confirmTransaction(txHash, "confirmed");
+            useCubeStore.getState().addToast(txHash, "Commit");
+            await fetchAccount();
+        } finally { setIsLoading(false); }
+    }, [program, wallet, erConnection, fetchAccount]);
 
-            useCubeStore.getState().addToast(txHash, "Commit Session");
-
-            // Attempt to get base-layer commitment signature
-            try {
-                const { GetCommitmentSignature } = await import(
-                    "@magicblock-labs/ephemeral-rollups-sdk"
-                );
-                const sig = await GetCommitmentSignature(txHash, erConnection);
-                console.log("Commit settled on base layer:", sig);
-            } catch {
-                console.debug("GetCommitmentSignature not available");
-            }
-
-            await fetchProfile();
-            return txHash;
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : "Failed to commit session";
-            setError(msg);
-            throw err;
-        } finally {
-            setIsLoading(false);
-        }
-    }, [program, erProvider, erConnection, connection, wallet.publicKey, fetchProfile]);
-
-    /**
-     * Undelegate the GameSession from the ER and settle final stats
-     * into the PlayerProfile on the base layer.
-     * Must call endGame() first.
-     */
-    const undelegateSession = useCallback(async (): Promise<string> => {
-        if (!program || !erProvider || !wallet.publicKey) {
-            throw new Error("Program not loaded or not delegated");
-        }
+    const undelegateSession = useCallback(async () => {
+        if (!program || !wallet.publicKey) return;
         setIsLoading(true);
-        setError(null);
         try {
-            // Collect remaining accounts for NFT minting from ER session state
-            const remainingAccounts: { pubkey: PublicKey, isWritable: boolean, isSigner: boolean }[] = [];
-
-            if (erGameSession && erGameSession.pendingMints) {
-                for (const pending of erGameSession.pendingMints) {
-                    const mint = new PublicKey(pending.mint);
-
-                    // Derive ATA for the player
-                    const [ata] = PublicKey.findProgramAddressSync(
-                        [
-                            wallet.publicKey.toBuffer(),
-                            TOKEN_PROGRAM_ID.toBuffer(),
-                            mint.toBuffer(),
-                        ],
-                        ASSOCIATED_TOKEN_PROGRAM_ID
-                    );
-
-                    remainingAccounts.push({ pubkey: mint, isWritable: true, isSigner: false });
-                    remainingAccounts.push({ pubkey: ata, isWritable: true, isSigner: false });
-                }
-            }
-
             let tx = await program.methods
-                .undelegateSession()
-                .accounts({
-                    payer: wallet.publicKey,
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                } as any)
-                .remainingAccounts(remainingAccounts)
+                .undelegate()
+                .accounts({ payer: wallet.publicKey })
                 .transaction();
 
-            tx.feePayer = wallet.publicKey;
             tx.recentBlockhash = (await erConnection.getLatestBlockhash()).blockhash;
-            tx = await erProvider.wallet.signTransaction(tx);
+            tx.feePayer = wallet.publicKey;
+            tx = await wallet.signTransaction!(tx);
 
-            const txHash = await erConnection.sendRawTransaction(tx.serialize(), {
-                skipPreflight: true,
-            });
+            const txHash = await erConnection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
             await erConnection.confirmTransaction(txHash, "confirmed");
-
-            useCubeStore.getState().addToast(txHash, "Undelegate Session");
-            console.log("Session successfully undelegated via ER cluster.");
-
-            // Wait for undelegation to propagate
+            useCubeStore.getState().addToast(txHash, "Undelegate");
             await new Promise(r => setTimeout(r, 2000));
-
             setDelegationStatus("undelegated");
-            setErGameSession(null);
-
-            await fetchProfile();
-            await fetchSession();
-
-            return txHash;
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : "Failed to undelegate session";
-            setError(msg);
-            throw err;
-        } finally {
-            setIsLoading(false);
-        }
-    }, [program, erProvider, erConnection, connection, wallet.publicKey, fetchProfile, fetchSession]);
-
-    // ================================================================
-    //  Return
-    // ================================================================
+            await fetchAccount();
+        } finally { setIsLoading(false); }
+    }, [program, wallet, erConnection, fetchAccount]);
 
     return {
-        // Programs
-        program,
-        erProgram,
-
-        // Account state
-        profile,
-        profilePubkey,
-        gameSession,       // base-layer session (post-undelegate)
-        erGameSession,     // live ER session (during gameplay)
-        sessionPubkey,
-
-        // Status
-        isLoading,
-        isDelegating,
-        error,
-        delegationStatus,
-        isSessionLoading,
-
-        // Base layer
-        initializeProfile,
-        delegateSession,
-
-        // ER hot-path (session-keyed — no wallet popup per tx)
-        enterGame,
-        placeBlock,
-        attack,
-        killEntity,
-        endGame,
-
-        // Commit / settle
-        commitSession,
-        undelegateSession,
-
-        // Session key
-        createSession,
-        sessionToken,
-
-        // Utilities
-        refetchProfile: fetchProfile,
-        refetchSession: fetchSession,
-        refetchErSession: fetchErSession,
-        checkDelegation: checkDelegationStatus,
-
-        // Helpers
-        KILL_REWARDS,
+        program, erProgram, account, profile: account, erAccount, erGameSession: erAccount,
+        isLoading, isDelegating, error, delegationStatus, isSessionLoading,
+        initialize, initializeProfile: initialize, delegateSession,
+        enterGame, placeBlock, attack, killEntity, endGame,
+        commitSession, undelegateSession, createSession, sessionToken,
+        checkDelegation, KILL_REWARDS,
     };
 }

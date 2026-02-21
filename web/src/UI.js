@@ -2,9 +2,10 @@ import React from "react"
 import { useCubeStore, REALM_CONFIG } from "./useStore"
 import { WalletMultiButton, useWalletModal } from "@solana/wallet-adapter-react-ui"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { useMinecraftProgram } from "./hooks/use-minecraft-program"
+import { useMinecraftProgram, KILL_REWARDS } from "./hooks/use-minecraft-program"
 import { getNPCResponse } from "./aiService"
 import { ENTITY_MINTS } from "./MintConfig"
+
 
 export const UI = () => {
     const { connected, publicKey, select, wallets } = useWallet()
@@ -67,8 +68,10 @@ export const UI = () => {
         }
         blockchainActions.killEntity = (type, reward) => {
             console.log("Blockchain Action: killEntity", type)
-            const mint = ENTITY_MINTS[type];
-            killEntity(type, reward, mint).catch(console.error)
+            // Use provided reward or lookup in KILL_REWARDS
+            const finalReward = reward ?? (KILL_REWARDS[type] || 0);
+            console.log(`[Score] Killing ${type}. Reward: ${finalReward}`);
+            killEntity(type, finalReward).catch(console.error)
         }
         blockchainActions.enterGame = (realm) => {
             console.log("Blockchain Action: enterGame", realm)
