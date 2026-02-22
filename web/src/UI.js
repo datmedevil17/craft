@@ -260,8 +260,8 @@ function ChatOverlay() {
         setChatFocused(false)
     }
 
-    // Show last 15 messages (or fewer)
-    const visibleMessages = chatMessages.slice(-15)
+    // Show last 8 messages (or fewer)
+    const visibleMessages = chatMessages.slice(-8)
 
     return (
         <div style={{
@@ -272,7 +272,7 @@ function ChatOverlay() {
             <div
                 ref={chatListRef}
                 style={{
-                    maxHeight: '180px', overflowY: 'auto', overflowX: 'hidden',
+                    maxHeight: '120px', overflowY: 'hidden', overflowX: 'hidden',
                     background: chatFocused ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)',
                     borderRadius: '6px 6px 0 0', padding: '6px',
                     transition: 'background 0.2s ease'
@@ -366,7 +366,8 @@ export const UI = () => {
         endGame: endGameState,
         blockchainActions,
         isNFTDrawerOpen, setNFTDrawerOpen,
-        selectedNFT, setSelectedNFT
+        selectedNFT, setSelectedNFT,
+        toasts, removeToast
     } = useCubeStore()
 
     const {
@@ -786,8 +787,23 @@ export const UI = () => {
                     background: "rgba(0, 0, 0, 0.6)", zIndex: -1, pointerEvents: "none"
                 }} />
 
-                <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10001, pointerEvents: "auto" }}>
+                <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10001, pointerEvents: "auto", display: "flex", flexDirection: "column", gap: "10px", alignItems: "flex-end" }}>
                     <WalletMultiButton />
+
+                    {/* ALWAYS-ON PROFILE STATS (If Connected & Initialized) */}
+                    {connected && profile && (
+                        <div style={{
+                            background: "rgba(0,0,0,0.8)", border: "2px solid #555",
+                            borderRadius: "10px", padding: "10px 15px", fontFamily: "'Press Start 2P', cursive",
+                            color: "white", fontSize: "10px", display: "flex", flexDirection: "column", gap: "8px",
+                            boxShadow: "0 4px 15px rgba(0,0,0,0.5)", width: "fit-content"
+                        }}>
+                            <div style={{ color: "#4a90e2", marginBottom: "4px" }}>PLAYER STATS</div>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: "20px" }}><span>BLOCKS:</span> <span style={{ color: "#55ff55" }}>{profile.blocksPlaced?.toString() || 0}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: "20px" }}><span>ATTACKS:</span> <span style={{ color: "#ff5555" }}>{profile.attacks?.toString() || 0}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: "20px" }}><span>KILLS:</span> <span style={{ color: "#ffb000" }}>{profile.kills?.toString() || 0}</span></div>
+                        </div>
+                    )}
                 </div>
 
 
@@ -992,6 +1008,23 @@ export const UI = () => {
                 </div>
             )}
 
+            {/* LIVE PROFILE STATS (TOP RIGHT) */}
+            {profile && (
+                <div style={{
+                    position: "absolute", top: 20, right: 20, pointerEvents: "none",
+                    background: "rgba(0,0,0,0.8)", border: "2px solid #555",
+                    borderRadius: "10px", padding: "10px 15px", fontFamily: "'Press Start 2P', cursive",
+                    color: "white", fontSize: "10px", display: "flex", flexDirection: "column", gap: "8px",
+                    boxShadow: "0 4px 15px rgba(0,0,0,0.5)", width: "fit-content", zIndex: 1000
+                }}>
+                    <div style={{ color: "#4a90e2", marginBottom: "4px" }}>PLAYER STATS</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "20px" }}><span>BLOCKS:</span> <span style={{ color: "#55ff55" }}>{profile.blocksPlaced?.toString() || 0}</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "20px" }}><span>ATTACKS:</span> <span style={{ color: "#ff5555" }}>{profile.attacks?.toString() || 0}</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "20px" }}><span>KILLS:</span> <span style={{ color: "#ffb000" }}>{profile.kills?.toString() || 0}</span></div>
+                </div>
+            )}
+
+            {/* TOP-LEFT HUD */}
             <div style={{ position: "absolute", top: 20, left: 20, pointerEvents: "auto", display: "flex", flexDirection: "column", gap: "10px", fontFamily: "'VT323', monospace" }}>
                 {/* HEARTS ROW — Minecraft style */}
                 <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap', maxWidth: '220px' }}>
@@ -1275,6 +1308,34 @@ export const UI = () => {
             {selectedNFT && (
                 <KillCard nft={selectedNFT} onClose={() => setSelectedNFT(null)} />
             )}
+
+            {/* TOAST NOTIFICATIONS (BOTTOM RIGHT) */}
+            <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column-reverse", gap: "10px", pointerEvents: "none" }}>
+                {toasts.map((t) => (
+                    <div key={t.id} style={{
+                        background: "rgba(0,0,0,0.8)", border: "1px solid rgba(85,255,85,0.4)", padding: "12px 20px",
+                        borderRadius: "8px", color: "white", fontFamily: "'Press Start 2P', cursive", fontSize: "10px",
+                        boxShadow: "0 4px 15px rgba(0,0,0,0.5)", animation: "slideInRight 0.3s ease-out", pointerEvents: "auto",
+                        display: "flex", flexDirection: "column", gap: "5px"
+                    }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "20px" }}>
+                            <span style={{ color: "#55ff55" }}>{t.label}{t.hash.length > 40 ? ' TX:' : ':'}</span>
+                            <button onClick={() => removeToast(t.id)} style={{
+                                background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: "12px", padding: 0
+                            }}>✕</button>
+                        </div>
+                        {t.hash.length > 40 ? (
+                            <a href={`https://solscan.io/tx/${t.hash}?cluster=devnet`} target="_blank" rel="noreferrer" style={{
+                                color: "#82aaff", textDecoration: "none"
+                            }}>
+                                {t.hash.slice(0, 8)}...{t.hash.slice(-8)}
+                            </a>
+                        ) : (
+                            <span style={{ color: "#ff8888" }}>{t.hash}</span>
+                        )}
+                    </div>
+                ))}
+            </div>
         </>
     )
 }

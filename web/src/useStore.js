@@ -48,9 +48,11 @@ export const useCubeStore = create((set) => ({
 
     // ── TX Toasts ─────────────────────────────────────────────────────────────
     toasts: [],
-    addToast: (label, hash) => set((state) => ({
-        toasts: [...state.toasts, { id: Date.now() + Math.random(), hash, label }]
-    })),
+    addToast: (label, hash) => {
+        const id = Date.now() + Math.random()
+        set((state) => ({ toasts: [...state.toasts, { id, hash, label }] }))
+        setTimeout(() => set((state) => ({ toasts: state.toasts.filter(t => t.id !== id) })), 5000)
+    },
     removeToast: (id) => set((state) => ({
         toasts: state.toasts.filter((t) => t.id !== id)
     })),

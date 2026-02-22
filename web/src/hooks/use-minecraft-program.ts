@@ -91,7 +91,7 @@ export function useMinecraftProgram() {
         []);
 
     const sessionWallet = useSessionKeyManager(wallet as any, connection, "devnet");
-    const { sessionToken, createSession: sdkCreateSession, isLoading: isSessionLoading } = sessionWallet;
+    const { sessionToken, createSession: sdkCreateSession, isLoading: isSessionLoading, revokeSession } = sessionWallet;
     const createSession = useCallback(() => sdkCreateSession(PROGRAM_ID), [sdkCreateSession]);
 
     // ---- ER Program (Anchor 0.30+) ----
@@ -218,8 +218,15 @@ export function useMinecraftProgram() {
             useCubeStore.getState().addToast(actionName, txHash);
             await fetchErAccount();
             return txHash;
-        } catch (err) {
+        } catch (err: any) {
             console.error(`ER Tx Error (${actionName}):`, err);
+            const msg = err?.message?.toLowerCase() || "";
+            // If the error suggests the session token is expired or unauthorized, clear it
+            if (msg.includes("expire") || msg.includes("session") || msg.includes("signature verification failed") || msg.includes("0xbbf") || msg.includes("unauthorized")) {
+                console.log("[Status] Session appears expired. Revoking...");
+                useCubeStore.getState().addToast("Session Expired", "Please INIT SESSION again");
+                if (revokeSession) revokeSession();
+            }
             setError(err instanceof Error ? err.message : "Error");
             throw err;
         } finally {
@@ -303,11 +310,11 @@ export function useMinecraftProgram() {
     }, [program, wallet, erConnection, fetchAccount]);
 
     return {
-        program, erProgram, account, profile: account, erAccount, erGameSession: erAccount,
+        program, erProgram, account, profile: erAccount || account, erAccount, erGameSession: erAccount,
         isLoading, isDelegating, error, delegationStatus, isSessionLoading,
         initialize, initializeProfile: initialize, delegateSession,
         enterGame, placeBlock, attack, killEntity, endGame,
-        commitSession, undelegateSession, createSession, sessionToken,
+        commitSession, undelegateSession, createSession, sessionToken, revokeSession,
         checkDelegation, KILL_REWARDS,
     };
 }

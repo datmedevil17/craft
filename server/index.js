@@ -347,16 +347,6 @@ io.on('connection', (socket) => {
                     console.log(`${walletAddress} left room ${roomName}`);
                     delete rooms[roomName].players[walletAddress];
                     io.to(roomName).emit('playerLeft', walletAddress);
-
-                    // System message
-                    const msg = {
-                        sender: '📤 System',
-                        text: `${username} left the game`,
-                        timestamp: Date.now(),
-                        system: true
-                    };
-                    rooms[roomName].chatHistory.push(msg);
-                    io.to(roomName).emit('chat_message', msg);
                 }
             }
         }
