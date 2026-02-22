@@ -291,7 +291,9 @@ function ChatOverlay() {
                             color: msg.system ? '#ffcc00' : msg.senderWallet === myWallet ? '#82aaff' : '#c3e88d',
                             fontWeight: 'bold'
                         }}>
-                            {msg.sender}:
+                            {msg.sender && msg.sender.length > 20 && !msg.sender.includes(' ')
+                                ? `${msg.sender.slice(0, 4)}...${msg.sender.slice(-4)}`
+                                : msg.sender}:
                         </span>{' '}
                         {msg.text}
                     </div>
@@ -980,7 +982,7 @@ export const UI = () => {
             <div style={{ position: "absolute", top: 20, left: 20, pointerEvents: "auto", display: "flex", flexDirection: "column", gap: "10px", fontFamily: "'VT323', monospace" }}>
                 {/* HEARTS ROW — Minecraft style */}
                 <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap', maxWidth: '220px' }}>
-                    {Array.from({ length: 15 }, (_, i) => {
+                    {Array.from({ length: 20 }, (_, i) => {
                         const heartHp = (i + 1) * 2;
                         const isFull = playerHealth >= heartHp;
                         const isHalf = !isFull && playerHealth >= heartHp - 1;
@@ -995,6 +997,24 @@ export const UI = () => {
                 <div style={{ background: "rgba(0,0,0,0.7)", padding: "10px", borderRadius: "8px", border: `2px solid ${REALM_CONFIG[realm].groundColor}`, color: "white" }}>
                     <div style={{ marginBottom: "5px", fontSize: "14px", fontWeight: "bold", color: "#4a90e2" }}>REALM: {realm.toUpperCase()}</div>
                     <OnlinePlayersCount />
+                    <button
+                        onClick={() => {
+                            document.exitPointerLock?.()
+                            useCubeStore.getState().switchRealm()
+                        }}
+                        style={{
+                            marginTop: '6px', padding: '4px 10px', fontSize: '10px',
+                            background: 'rgba(255,255,255,0.15)', color: '#fff',
+                            border: '1px solid rgba(255,255,255,0.3)', borderRadius: '4px',
+                            cursor: 'pointer', fontFamily: "'VT323', monospace",
+                            transition: 'all 0.2s', pointerEvents: 'auto',
+                            width: '100%'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(74,144,226,0.4)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)' }}
+                    >
+                        🔄 Switch Realm
+                    </button>
                 </div>
 
                 {/* BOSS HP BAR (top center) */}

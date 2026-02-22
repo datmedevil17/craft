@@ -9,8 +9,8 @@ import Tool from "./Tool"
 import { useSocket } from "./SocketContext"
 import { useCubeStore } from "./useStore"
 
-const WALK_SPEED = 5
-const SPRINT_SPEED = 9
+const WALK_SPEED = 8
+const SPRINT_SPEED = 16
 const THIRD_PERSON_DIST = 5
 
 const direction = new THREE.Vector3()
@@ -22,32 +22,86 @@ const targetCamPos = new THREE.Vector3() // lerp target to prevent jitter
 
 /**
  * PlayerBody: rendered in 3rd-person modes.
- * Uses its own useFrame to follow the RigidBody ref every frame.
+ * Plays walk/run/attack/idle animations based on player state.
  */
 function PlayerBody({ rigidBodyRef }) {
   const group = useRef()
   const { scene, animations } = useGLTF("/models/Characters/Character_Male_1.gltf")
-  // Clone the scene so it can be used independently (animations, materials etc)
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
-  const { actions } = useAnimations(animations, group)
+  const { actions, names } = useAnimations(animations, group)
+  const currentAnim = useRef('idle')
+  const { socketActions } = useCubeStore()
 
-  // Play idle animation once actions are ready
+  // Log available animations
   useEffect(() => {
-    const idle = actions?.Idle || actions?.Idle_General || Object.values(actions)[0]
+    console.log('[Player] Available animations:', names)
+  }, [names])
+
+  // Find animation by name patterns
+  const findAnim = (patterns) => {
+    for (const p of patterns) {
+      if (actions[p]) return actions[p]
+      const found = names.find(n => n.toLowerCase().includes(p.toLowerCase()))
+      if (found && actions[found]) return actions[found]
+    }
+    return null
+  }
+
+  // Play idle on start
+  useEffect(() => {
+    const idle = findAnim(['Idle', 'idle']) || Object.values(actions)[0]
     if (idle) idle.reset().fadeIn(0.2).play()
   }, [actions])
 
-  // Move + rotate to match player position every frame
+  // Move + rotate + animate based on velocity
   useFrame((state) => {
     if (!rigidBodyRef.current || !group.current) return
     const pos = rigidBodyRef.current.translation()
     group.current.position.set(pos.x, pos.y - 0.9, pos.z)
     group.current.rotation.set(0, state.camera.rotation.y + Math.PI, 0)
+
+    const vel = rigidBodyRef.current.linvel()
+    const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
+    const isAttacking = state.mouse.buttons > 0
+
+    let targetState = 'idle'
+    if (isAttacking) targetState = 'attack'
+    else if (speed > 2) targetState = 'walk'
+
+    if (targetState !== currentAnim.current) {
+      currentAnim.current = targetState
+
+      const idleAnim = findAnim(['Idle', 'idle']) || Object.values(actions)[0]
+      const walkAnim = findAnim(['Walk', 'Run', 'walk', 'run'])
+      const attackAnim = findAnim(['Attack', 'Punch', 'attack', 'punch'])
+
+      // Fade out all
+      Object.values(actions).forEach(a => a.fadeOut(0.2))
+
+      let target = null
+      if (targetState === 'attack' && attackAnim) {
+        target = attackAnim
+        target.setLoop(THREE.LoopOnce)
+        target.clampWhenFinished = true
+      } else if (targetState === 'walk' && walkAnim) {
+        target = walkAnim
+        target.setLoop(THREE.LoopRepeat)
+      } else if (idleAnim) {
+        target = idleAnim
+        target.setLoop(THREE.LoopRepeat)
+      }
+
+      if (target) target.reset().fadeIn(0.15).play()
+
+      // Sync animation action to other players
+      if (socketActions?.sendAction) {
+        socketActions.sendAction(targetState)
+      }
+    }
   })
 
   return (
     <group ref={group} scale={0.5}>
-      {/* Render the full scene (CharacterArmature + mesh + skeleton) */}
       <primitive object={clone} />
     </group>
   )
@@ -117,7 +171,7 @@ export function Player({ lerp = THREE.MathUtils.lerp }) {
     }
 
     // ── Movement ──────────────────────────────────────────────────────────
-    const spd = (sprint && forward) ? SPRINT_SPEED : WALK_SPEED
+    const spd = sprint ? SPRINT_SPEED : WALK_SPEED
 
     frontVector.set(0, 0, Number(backward) - Number(forward))
     sideVector.set(Number(left) - Number(right), 0, 0)
@@ -137,7 +191,7 @@ export function Player({ lerp = THREE.MathUtils.lerp }) {
 
     // Void check
     if (playerPos.y < -20) {
-      ref.current.setTranslation({ x: 0, y: 10, z: 40 })
+      ref.current.setTranslation({ x: 0, y: 10, z: -40 })
       ref.current.setLinvel({ x: 0, y: 0, z: 0 })
     }
 
@@ -150,7 +204,7 @@ export function Player({ lerp = THREE.MathUtils.lerp }) {
 
   return (
     <>
-      <RigidBody ref={ref} colliders={false} mass={1} type="dynamic" position={[0, 10, 40]} enabledRotations={[false, false, false]} linearDamping={12}>
+      <RigidBody ref={ref} colliders={false} mass={1} type="dynamic" position={[0, 10, -40]} enabledRotations={[false, false, false]} linearDamping={12}>
         <CapsuleCollider args={[0.75, 0.5]} />
       </RigidBody>
 

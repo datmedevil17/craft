@@ -1,55 +1,55 @@
 export const miningConfig = {
     "Block_Stone": {
-        "Pickaxe": 3,
-        "Axe": 10,
-        "Shovel": 15,
-        "hand": 20
+        "Pickaxe": 2,
+        "Axe": 5,
+        "Shovel": 8,
+        "hand": 12
     },
     "Block_GreyBricks": {
-        "Pickaxe": 3,
-        "Axe": 10,
-        "hand": 20
+        "Pickaxe": 2,
+        "Axe": 5,
+        "hand": 12
     },
     "Block_Diamond": {
-        "Pickaxe": 5,
-        "hand": 30
+        "Pickaxe": 3,
+        "hand": 15
     },
     "Block_Crystal": {
-        "Pickaxe": 4,
-        "hand": 25
+        "Pickaxe": 2,
+        "hand": 12
     },
     "Block_Dirt": {
         "Shovel": 1,
-        "hand": 5
+        "hand": 3
     },
     "Block_Grass": {
         "Shovel": 1,
-        "hand": 4
+        "hand": 2
     },
     "Block_Snow": {
         "Shovel": 1,
-        "hand": 3
+        "hand": 2
     },
     "Block_Ice": {
-        "Pickaxe": 2,
-        "Shovel": 2,
-        "hand": 8
+        "Pickaxe": 1,
+        "Shovel": 1,
+        "hand": 4
     },
     "Block_WoodPlanks": {
-        "Axe": 2,
-        "hand": 10
+        "Axe": 1,
+        "hand": 5
     },
     "Block_Crate": {
         "Axe": 1,
-        "hand": 5
+        "hand": 3
     }
 }
 
 export const getRequiredClicks = (blockType, toolName) => {
-    const config = miningConfig[blockType] || { hand: 5 }
+    const config = miningConfig[blockType] || { hand: 3 }
 
-    if (!toolName) return config.hand || 5
+    if (!toolName) return config.hand || 3
 
     const toolType = toolName.split('_')[0] // Get "Pickaxe", "Axe", etc.
-    return config[toolType] || config.hand || 5
+    return config[toolType] || config.hand || 3
 }

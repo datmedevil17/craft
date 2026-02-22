@@ -17,9 +17,9 @@ const io = new Server(httpServer, {
 const PORT = process.env.PORT || 3001;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const PLAYER_MAX_HP = 30;          // 15 hearts × 2 HP each
-const PLAYER_ATTACK_DAMAGE = 4;    // 2 hearts per hit
-const BOSS_ATTACK_DAMAGE = 6;      // 3 hearts per boss hit
+const PLAYER_MAX_HP = 40;          // 20 hearts × 2 HP each
+const PLAYER_ATTACK_DAMAGE = 6;    // 3 hearts per hit
+const BOSS_ATTACK_DAMAGE = 4;      // 2 hearts per boss hit
 const BOSS_ATTACK_RANGE = 20;
 const BOSS_ATTACK_INTERVAL = 2000; // ms
 const BOSS_RESPAWN_TIME = 30000;   // 30s
@@ -30,9 +30,9 @@ const PLAYER_RESPAWN_TIME = 3000;
 
 // ─── Boss Config per Room ─────────────────────────────────────────────────────
 const BOSS_CONFIG = {
-    "Room 1": { type: 'Giant', maxHp: 500, position: [80, 5, 80], damage: BOSS_ATTACK_DAMAGE },
-    "Room 2": { type: 'Demon', maxHp: 500, position: [80, 5, 80], damage: BOSS_ATTACK_DAMAGE },
-    "Room 3": { type: 'Yeti', maxHp: 500, position: [80, 5, 80], damage: BOSS_ATTACK_DAMAGE },
+    "Room 1": { type: 'Giant', maxHp: 500, position: [25, 1, 25], damage: BOSS_ATTACK_DAMAGE },
+    "Room 2": { type: 'Demon', maxHp: 500, position: [25, 1, 25], damage: BOSS_ATTACK_DAMAGE },
+    "Room 3": { type: 'Yeti', maxHp: 500, position: [25, 1, 25], damage: BOSS_ATTACK_DAMAGE },
 };
 
 // ─── Room State ───────────────────────────────────────────────────────────────
@@ -98,31 +98,9 @@ setInterval(() => {
         if (nearest && nearestDist < BOSS_ATTACK_RANGE && now - boss.lastAttackTime > BOSS_ATTACK_INTERVAL) {
             boss.lastAttackTime = now;
             boss.targetWallet = nearest;
-            const player = room.players[nearest];
-            player.hp = Math.max(0, player.hp - boss.damage);
-
-            // Broadcast boss attack + health update
+            // Damage is now handled client-side (synced with attack animation)
+            // Server just broadcasts the attack event for animation sync
             io.to(roomName).emit('boss_attack', { targetWallet: nearest, damage: boss.damage, bossPosition: boss.position });
-            io.to(roomName).emit('health_update', { walletAddress: nearest, hp: player.hp, maxHp: player.maxHp });
-
-            if (player.hp <= 0) {
-                player.alive = false;
-                io.to(roomName).emit('player_dead', { walletAddress: nearest, killedBy: 'boss' });
-
-                // Respawn after delay
-                setTimeout(() => {
-                    if (room.players[nearest]) {
-                        room.players[nearest].hp = PLAYER_MAX_HP;
-                        room.players[nearest].alive = true;
-                        room.players[nearest].position = [0, 10, 40];
-                        io.to(roomName).emit('player_respawn', {
-                            walletAddress: nearest,
-                            hp: PLAYER_MAX_HP,
-                            position: [0, 10, 40]
-                        });
-                    }
-                }, PLAYER_RESPAWN_TIME);
-            }
         }
     }
 }, 500); // Check every 500ms for responsive combat
@@ -252,9 +230,7 @@ io.on('connection', (socket) => {
         if (now - player.lastAttackTime < ATTACK_COOLDOWN) return;
         player.lastAttackTime = now;
 
-        // Range check
-        const d = dist3(player.position, boss.position);
-        if (d > PVP_ATTACK_RANGE * 2) return; // Boss has big hitbox
+        // Removed distance check: boss moves on client, checking against static server position causes hits to fail when wandering
 
         // Apply damage
         boss.hp = Math.max(0, boss.hp - PLAYER_ATTACK_DAMAGE);

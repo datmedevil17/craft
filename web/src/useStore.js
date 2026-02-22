@@ -36,7 +36,7 @@ export const REALM_CONFIG = {
 export const useCubeStore = create((set) => ({
     gameStarted: false,
     realm: "Jungle",
-    playerHealth: 30,
+    playerHealth: 40,
     isGameOver: false,
     invincible: false,
     blockchainActions: {
@@ -105,6 +105,8 @@ export const useCubeStore = create((set) => ({
     setHotbarSlot: (index, item) => set((state) => {
         const next = [...state.hotbarSlots]
         next[index] = item
+        // Persist to localStorage
+        try { localStorage.setItem('craft_hotbar', JSON.stringify(next)) } catch (e) { }
         return { hotbarSlots: next }
     }),
     // drag source tracking: { type: 'inventory'|'hotbar', index }
@@ -116,6 +118,8 @@ export const useCubeStore = create((set) => ({
     setInventorySlot: (index, item) => set((state) => {
         const next = [...state.inventorySlots]
         next[index] = item
+        // Persist to localStorage
+        try { localStorage.setItem('craft_inventory', JSON.stringify(next)) } catch (e) { }
         return { inventorySlots: next }
     }),
 
@@ -123,8 +127,22 @@ export const useCubeStore = create((set) => ({
         const config = REALM_CONFIG[realm]
         // Fill inventory slots with available items (blocks + tools), rest empty
         const allItems = [...(config.blocks || []), ...(config.tools || [])]
-        const inventorySlots = Array(26).fill(null)
+        let inventorySlots = Array(26).fill(null)
         allItems.slice(0, 26).forEach((item, i) => { inventorySlots[i] = item })
+        let hotbarSlots = Array(9).fill(null)
+
+        // Restore saved inventory if switching back to the same realm
+        try {
+            const savedRealm = localStorage.getItem('craft_realm')
+            if (savedRealm === realm) {
+                const savedInv = localStorage.getItem('craft_inventory')
+                const savedHot = localStorage.getItem('craft_hotbar')
+                if (savedInv) inventorySlots = JSON.parse(savedInv)
+                if (savedHot) hotbarSlots = JSON.parse(savedHot)
+            }
+            localStorage.setItem('craft_realm', realm)
+        } catch (e) { }
+
         set({
             gameStarted: true,
             realm: realm,
@@ -134,10 +152,10 @@ export const useCubeStore = create((set) => ({
             enemies: config.enemies,
             currentBlock: null,
             currentTool: config.tools[0],
-            playerHealth: 30,
+            playerHealth: 40,
             isGameOver: false,
             invincible: true,
-            hotbarSlots: Array(9).fill(null),
+            hotbarSlots,
             selectedHotbarIndex: 0,
             inventorySlots,
         })
@@ -156,9 +174,20 @@ export const useCubeStore = create((set) => ({
         }
     }),
     setPlayerHealth: (hp) => set({ playerHealth: hp, isGameOver: hp <= 0 }),
-    healPlayer: (amount) => set((state) => ({ playerHealth: Math.min(30, state.playerHealth + amount) })),
+    healPlayer: (amount) => set((state) => ({ playerHealth: Math.min(40, state.playerHealth + amount) })),
     restartGame: () => {
-        set({ gameStarted: false, isGameOver: false, playerHealth: 30, invincible: true, showUndelegatePrompt: false })
+        set({ gameStarted: false, isGameOver: false, playerHealth: 40, invincible: true, showUndelegatePrompt: false })
+        setTimeout(() => set({ invincible: false }), 3000)
+    },
+    switchRealm: () => {
+        // Save current inventory before switching
+        const state = useCubeStore.getState()
+        try {
+            localStorage.setItem('craft_inventory', JSON.stringify(state.inventorySlots))
+            localStorage.setItem('craft_hotbar', JSON.stringify(state.hotbarSlots))
+            localStorage.setItem('craft_realm', state.realm)
+        } catch (e) { }
+        set({ gameStarted: false, isGameOver: false, playerHealth: 40, invincible: true })
         setTimeout(() => set({ invincible: false }), 3000)
     },
     endGame: () => {
@@ -195,3 +224,23 @@ export const useCubeStore = create((set) => ({
         return Math.abs(z - riverZ) < 22 // river width(15) + 7 unit visual clearance
     }
 }))
+
+// ── Auto-persist inventory to localStorage ────────────────────────────────────
+let lastHotbar = null
+let lastInventory = null
+useCubeStore.subscribe((state) => {
+    if (!state.gameStarted) return
+    try {
+        const hotStr = JSON.stringify(state.hotbarSlots)
+        const invStr = JSON.stringify(state.inventorySlots)
+        if (hotStr !== lastHotbar) {
+            lastHotbar = hotStr
+            localStorage.setItem('craft_hotbar', hotStr)
+        }
+        if (invStr !== lastInventory) {
+            lastInventory = invStr
+            localStorage.setItem('craft_inventory', invStr)
+        }
+        localStorage.setItem('craft_realm', state.realm)
+    } catch (e) { }
+})

@@ -9,7 +9,7 @@ export const Animals = () => {
     const spawnedAnimals = React.useMemo(() => {
         if (!realmAnimals || realmAnimals.length === 0) return []
 
-        return Array.from({ length: 40 }, (_, i) => {
+        return Array.from({ length: 80 }, (_, i) => {
             let pos
             let attempts = 0
             while (attempts < 10) {

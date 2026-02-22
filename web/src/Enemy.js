@@ -56,12 +56,26 @@ export default function Enemy({ type, position: initialPosition }) {
             return newHealth
         })
 
-        // Play a hit animation
-        const hitAnim = actions.Attack || actions.Walk || Object.values(actions)[0]
-        if (hitAnim) {
-            hitAnim.reset().fadeIn(0.1).setDuration(0.5).play()
+        // Flash red on hit
+        if (group.current) {
+            group.current.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    child.material.emissive = child.material.emissive || new THREE.Color()
+                    child.material.emissive.setRGB(1, 0.3, 0.3)
+                    child.material.emissiveIntensity = 2
+                }
+            })
+            setTimeout(() => {
+                if (group.current) {
+                    group.current.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material.emissiveIntensity = 0
+                        }
+                    })
+                }
+            }, 200)
         }
-    }, [status, actions])
+    }, [status, type, blockchainActions])
 
     useEffect(() => {
         if (status === 'dying') {
@@ -82,11 +96,21 @@ export default function Enemy({ type, position: initialPosition }) {
         }
     }, [status, actions, names, respawn])
 
+    // Helper: find animation by multiple name patterns
+    const findAnim = useCallback((patterns) => {
+        for (const p of patterns) {
+            if (actions[p]) return actions[p]
+            const found = names.find(n => n.toLowerCase().includes(p.toLowerCase()))
+            if (found && actions[found]) return actions[found]
+        }
+        return null
+    }, [actions, names])
+
     useEffect(() => {
         if (status !== 'alive') return
-        const idleAnim = actions.Idle || names.find(n => n.includes('Idle')) || names[0]
-        if (actions[idleAnim]) actions[idleAnim].play()
-    }, [actions, names, status])
+        const idle = findAnim(['Idle', 'idle']) || Object.values(actions)[0]
+        if (idle) idle.reset().fadeIn(0.2).play()
+    }, [actions, names, status, findAnim])
 
     useFrame((state, delta) => {
         if (status !== 'alive' || !rb.current || !group.current) return
@@ -116,10 +140,11 @@ export default function Enemy({ type, position: initialPosition }) {
             group.current.quaternion.slerp(q, 0.1)
 
             // Walk animation
-            const moveAnim = actions.Walk || actions.Run || names.find(n => n.includes('Walk'))
-            if (moveAnim) {
-                const anim = typeof moveAnim === 'string' ? actions[moveAnim] : moveAnim
-                if (!anim.isRunning()) anim.reset().fadeIn(0.2).play()
+            const walkAnim = findAnim(['Walk', 'Run', 'walk', 'run'])
+            const idleAnim = findAnim(['Idle', 'idle'])
+            if (walkAnim && !walkAnim.isRunning()) {
+                if (idleAnim) idleAnim.fadeOut(0.2)
+                walkAnim.reset().fadeIn(0.2).play()
             }
         } else if (dist <= 1.5) {
             // Attack player
@@ -128,22 +153,23 @@ export default function Enemy({ type, position: initialPosition }) {
                 damagePlayer(type === 'Giant' || type === 'Yeti' ? 20 : 10)
                 setLastAttackTime(now)
 
-                // Play attack animation
-                const attackAnim = actions.Attack || names.find(n => n.includes('Attack'))
+                // Play attack animation (LoopOnce)
+                const attackAnim = findAnim(['Attack', 'Punch', 'Bite', 'Slash', 'attack'])
                 if (attackAnim) {
-                    const anim = typeof attackAnim === 'string' ? actions[attackAnim] : attackAnim
-                    anim.reset().fadeIn(0.1).play()
+                    Object.values(actions).forEach(a => a !== attackAnim && a.fadeOut(0.15))
+                    attackAnim.setLoop(THREE.LoopOnce)
+                    attackAnim.clampWhenFinished = true
+                    attackAnim.reset().fadeIn(0.1).play()
                 }
             }
             rb.current.setLinvel({ x: 0, y: rb.current.linvel().y, z: 0 }, true)
         } else {
             // Idle
             rb.current.setLinvel({ x: 0, y: rb.current.linvel().y, z: 0 }, true)
-            const moveAnim = actions.Walk || actions.Run || names.find(n => n.includes('Walk'))
-            if (moveAnim) {
-                const anim = typeof moveAnim === 'string' ? actions[moveAnim] : moveAnim
-                anim.fadeOut(0.2)
-            }
+            const walkAnim = findAnim(['Walk', 'Run', 'walk', 'run'])
+            const idleAnim = findAnim(['Idle', 'idle']) || Object.values(actions)[0]
+            if (walkAnim && walkAnim.isRunning()) walkAnim.fadeOut(0.3)
+            if (idleAnim && !idleAnim.isRunning()) idleAnim.reset().fadeIn(0.3).play()
         }
     })
 
