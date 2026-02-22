@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { Animal } from './Animal'
 import { useCubeStore } from './useStore'
 
 export const Animals = () => {
     const { animals: realmAnimals, isInRiver } = useCubeStore()
+    const animalPositions = useRef({}) // { id: Vector3 }
 
     const spawnedAnimals = React.useMemo(() => {
         if (!realmAnimals || realmAnimals.length === 0) return []
@@ -35,7 +36,13 @@ export const Animals = () => {
     return (
         <group>
             {spawnedAnimals.map((animal) => (
-                <Animal key={`${animal.type}-${animal.id}`} type={animal.type} position={animal.position} />
+                <Animal
+                    key={`${animal.type}-${animal.id}`}
+                    id={animal.id}
+                    type={animal.type}
+                    position={animal.position}
+                    allPositions={animalPositions}
+                />
             ))}
         </group>
     )

@@ -1,6 +1,6 @@
 import React from "react"
 import { useTexture } from "@react-three/drei"
-import { RigidBody } from "@react-three/rapier"
+import { RigidBody, CuboidCollider } from "@react-three/rapier"
 import * as THREE from "three"
 import { useCubeStore, REALM_CONFIG } from "./useStore"
 
@@ -25,7 +25,7 @@ export const Ground = (props) => {
   const { addCube, blockchainActions, currentBlock, socketActions } = useCubeStore()
 
   return (
-    <RigidBody {...props} type="fixed" colliders="cuboid">
+    <RigidBody {...props} type="fixed" colliders={false}>
       <mesh
         receiveShadow
         rotation={[-Math.PI / 2, 0, 0]}
@@ -47,6 +47,8 @@ export const Ground = (props) => {
           roughness={0.8}
         />
       </mesh>
+      {/* Thicker collider to prevent falling through */}
+      <CuboidCollider args={[500, 2, 500]} position={[0, -2, 0]} />
     </RigidBody>
   )
 }

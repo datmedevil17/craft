@@ -43,6 +43,94 @@ const ITEM_DISPLAY = {
     Sword_Diamond: { color: '#00bcd4', emoji: '🗡️' },
 }
 
+const MOCK_NFTS = [
+    { id: 1, name: "Alpha Wolf", rarity: "Legendary", color: "#FFB000", image: "/nfts/1.png", stats: { attack: 25, speed: 18, rarity: 98 } },
+    { id: 2, name: "Snow Husky", rarity: "Epic", color: "#A020F0", image: "/nfts/2.png", stats: { attack: 15, speed: 22, rarity: 85 } },
+    { id: 3, name: "Forest Sprite", rarity: "Rare", color: "#4a90e2", image: "/nfts/3.png", stats: { attack: 8, speed: 30, rarity: 70 } },
+    { id: 4, name: "Glacial Bear", rarity: "Mythic", color: "#FF0000", image: "/nfts/4.png", stats: { attack: 40, speed: 10, rarity: 99 } },
+    { id: 5, name: "Night Raccoon", rarity: "Common", color: "#808080", image: "/nfts/5.png", stats: { attack: 5, speed: 15, rarity: 20 } },
+    { id: 6, name: "Golden Phoenix", rarity: "Legendary", color: "#FFB000", image: "/nfts/6.png", stats: { attack: 35, speed: 40, rarity: 97 } },
+    { id: 7, name: "Void Stalker", rarity: "Mythic", color: "#A020F0", image: "/nfts/7.png", stats: { attack: 50, speed: 25, rarity: 100 } },
+]
+
+function KillCard({ nft, onClose }) {
+    if (!nft) return null
+    return (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+            background: 'rgba(0,0,0,0.9)', zIndex: 6000, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto',
+            fontFamily: "'Press Start 2P', cursive", animation: 'fadeIn 0.3s ease-out'
+        }}>
+            <style>{`
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes cardSlideUp { 
+                    from { transform: translateY(50px) scale(0.9); opacity: 0; } 
+                    to { transform: translateY(0) scale(1); opacity: 1; } 
+                }
+                @keyframes glow {
+                    0% { box-shadow: 0 0 20px rgba(255,255,255,0.2); }
+                    50% { box-shadow: 0 0 40px ${nft.color}66; }
+                    100% { box-shadow: 0 0 20px rgba(255,255,255,0.2); }
+                }
+            `}</style>
+            <div style={{
+                width: '400px', background: 'rgba(20,20,20,0.95)', border: `4px solid ${nft.color}`,
+                borderRadius: '24px', padding: '30px', position: 'relative',
+                animation: 'cardSlideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                boxShadow: `0 0 50px ${nft.color}33`, textAlign: 'center'
+            }}>
+                <button
+                    onClick={onClose}
+                    style={{ position: 'absolute', top: 20, right: 20, background: 'none', border: 'none', color: 'white', fontSize: '24px', cursor: 'pointer' }}
+                >✕</button>
+
+                <h2 style={{ color: nft.color, fontSize: '18px', marginBottom: '10px' }}>{nft.rarity.toUpperCase()}</h2>
+                <h1 style={{ color: 'white', fontSize: '24px', marginBottom: '30px', textShadow: '2px 2px 4px #000' }}>{nft.name}</h1>
+
+                <div style={{
+                    width: '100%', aspectRatio: '1/1', borderRadius: '16px',
+                    backgroundImage: `url(${nft.image})`, backgroundSize: 'cover',
+                    border: `2px solid rgba(255,255,255,0.1)`, marginBottom: '30px',
+                    animation: 'glow 3s infinite ease-in-out'
+                }} />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', color: '#888', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>ATTACK</span>
+                        <span style={{ color: 'white' }}>{nft.stats.attack}</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${nft.stats.attack}%`, height: '100%', background: nft.color }} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>SPEED</span>
+                        <span style={{ color: 'white' }}>{nft.stats.speed}</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${nft.stats.speed}%`, height: '100%', background: nft.color }} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>RARITY</span>
+                        <span style={{ color: nft.color }}>{nft.stats.rarity}%</span>
+                    </div>
+                </div>
+
+                <button
+                    onClick={onClose}
+                    style={{
+                        marginTop: '40px', padding: '15px 30px', background: nft.color, color: 'black',
+                        border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '14px',
+                        fontWeight: 'bold', width: '100%'
+                    }}
+                >COLLECTED</button>
+            </div>
+        </div>
+    )
+}
+
 function ItemSlotContent({ item }) {
     if (!item) return null
     const display = ITEM_DISPLAY[item] || { color: '#555', emoji: '❓' }
@@ -274,7 +362,9 @@ export const UI = () => {
         inventorySlots, setInventorySlot,
         dragSource, setDragSource,
         endGame: endGameState,
-        blockchainActions
+        blockchainActions,
+        isNFTDrawerOpen, setNFTDrawerOpen,
+        selectedNFT, setSelectedNFT
     } = useCubeStore()
 
     const {
@@ -423,6 +513,15 @@ export const UI = () => {
                 const item = useCubeStore.getState().hotbarSlots[idx];
                 if (item) applyHotbarItem(item);
             }
+
+            // Space + N for NFT Drawer
+            if (e.key.toLowerCase() === 'n' && e.code === 'KeyN' && e.shiftKey === false) {
+                // We'll use a simple approach: if user is holding Space (handled by KeyboardControls or naturally)
+                // Since detecting Space + N in a single keydown event is tricky without tracking,
+                // we'll check if e.code is 'KeyN' and if we can somehow infer Space.
+                // For now, let's just make it 'N' (or tell the user we're doing Space+N if we had a better way).
+                // Actually, let's implement a 'spacePressed' ref manually.
+            }
         };
 
         const handleWheel = (e) => {
@@ -436,11 +535,28 @@ export const UI = () => {
             if (slots[next]) applyHotbarItem(slots[next]);
         };
 
+        const spacePressedRef = { current: false };
+        const handleKeyPress = (e) => {
+            if (e.code === 'Space') spacePressedRef.current = true;
+            if (e.code === 'KeyN' && spacePressedRef.current) {
+                const isOpen = useCubeStore.getState().isNFTDrawerOpen;
+                useCubeStore.getState().setNFTDrawerOpen(!isOpen);
+                document.exitPointerLock();
+            }
+        };
+        const handleKeyUp = (e) => {
+            if (e.code === 'Space') spacePressedRef.current = false;
+        };
+
         window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keydown', handleKeyPress);
+        window.addEventListener('keyup', handleKeyUp);
         window.addEventListener('wheel', handleWheel);
 
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keydown', handleKeyPress);
+            window.removeEventListener('keyup', handleKeyUp);
             window.removeEventListener('wheel', handleWheel);
         }
     }, [gameStarted, isGameOver, dialogue.isOpen, isInventoryOpen, setInventoryOpen, isMenuOpen, setMenuOpen, blocks, selectedHotbarIndex, setSelectedHotbarIndex]);
@@ -1048,6 +1164,84 @@ export const UI = () => {
                     </div>
                 )}
             </div>
+
+            {/* NFT DRAWER OVERLAY */}
+            {isNFTDrawerOpen && (
+                <div style={{
+                    position: "fixed", top: 0, right: 0, width: "100%", height: "100%",
+                    background: "rgba(0,0,0,0.6)", zIndex: 5000, pointerEvents: "auto",
+                    fontFamily: "'Press Start 2P', cursive", display: "flex", justifyContent: "flex-end"
+                }}>
+                    <div
+                        onClick={() => setNFTDrawerOpen(false)}
+                        style={{ flex: 1, cursor: "pointer" }} />
+                    <div style={{
+                        width: "600px", height: "100%", background: "rgba(10, 10, 10, 0.8)",
+                        backdropFilter: "blur(40px)", borderLeft: "2px solid rgba(255,255,255,0.1)",
+                        padding: "40px", display: "flex", flexDirection: "column",
+                        animation: "slideInRight 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)",
+                        boxShadow: "-10px 0 50px rgba(0,0,0,0.5)"
+                    }}>
+                        <style>{`
+                            @keyframes slideInRight {
+                                from { transform: translateX(100%); opacity: 0; }
+                                to { transform: translateX(0); opacity: 1; }
+                            }
+                            .nft-card:hover {
+                                border-color: white !important;
+                                transform: translateY(-8px) scale(1.02);
+                                background: rgba(255,255,255,0.15) !important;
+                            }
+                        `}</style>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "40px" }}>
+                            <div>
+                                <h2 style={{ color: "white", fontSize: "24px", margin: "0 0 10px 0", letterSpacing: "2px" }}>NFT VAULT</h2>
+                                <div style={{ height: "4px", width: "100px", background: "linear-gradient(90deg, #4a90e2, transparent)" }} />
+                            </div>
+                            <button onClick={() => setNFTDrawerOpen(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", width: "40px", height: "40px", borderRadius: "50%", cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.2)"} onMouseLeave={e => e.target.style.background = "rgba(255,255,255,0.1)"}>✕</button>
+                        </div>
+
+                        <div style={{
+                            display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "25px",
+                            overflowY: "auto", paddingRight: "15px", flex: 1
+                        }}>
+                            {MOCK_NFTS.map((nft) => (
+                                <div
+                                    key={nft.id}
+                                    className="nft-card"
+                                    onClick={() => setSelectedNFT(nft)}
+                                    style={{
+                                        background: "rgba(255,255,255,0.05)", borderRadius: "20px",
+                                        border: `1px solid ${nft.color}44`, padding: "20px",
+                                        transition: "all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)", cursor: "pointer", position: "relative",
+                                        overflow: "hidden", display: "flex", flexDirection: "column",
+                                        boxShadow: `0 4px 15px rgba(0,0,0,0.3)`
+                                    }}
+                                >
+                                    <div style={{
+                                        width: "100%", aspectRatio: "1/1", borderRadius: "12px",
+                                        backgroundImage: `url(${nft.image})`, backgroundSize: "cover",
+                                        marginBottom: "15px", border: "1px solid rgba(255,255,255,0.1)"
+                                    }} />
+                                    <div style={{ fontSize: "10px", color: nft.color, marginBottom: "8px", fontWeight: "bold" }}>{nft.rarity.toUpperCase()}</div>
+                                    <div style={{ fontSize: "12px", color: "white", lineHeight: "1.4", height: "2.8em", overflow: "hidden" }}>{nft.name}</div>
+
+                                    <div style={{
+                                        position: "absolute", bottom: 0, right: 0, width: "60px", height: "60px",
+                                        background: `radial-gradient(circle at bottom right, ${nft.color}22, transparent 70%)`,
+                                        pointerEvents: "none"
+                                    }} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* KILL CARD MODAL */}
+            {selectedNFT && (
+                <KillCard nft={selectedNFT} onClose={() => setSelectedNFT(null)} />
+            )}
         </>
     )
 }

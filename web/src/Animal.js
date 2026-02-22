@@ -1,23 +1,25 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useGLTF, useAnimations } from '@react-three/drei'
 import { useFrame, useGraph } from '@react-three/fiber'
-import { RigidBody } from '@react-three/rapier'
+import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { SkeletonUtils } from 'three-stdlib'
 import { useCubeStore } from './useStore'
 import { FloatingHealthBar } from "./FloatingHealthBar"
 import { KILL_REWARDS } from './hooks/use-minecraft-program'
+import { ANIMAL_CONFIG, DEFAULT_ANIMAL_CONFIG } from './config/animationConfig'
 
-export const Animal = ({ type, position: initialPosition }) => {
+export const Animal = ({ id, type, position: initialPosition, allPositions }) => {
     const group = useRef()
     const rb = useRef()
     const { scene, animations } = useGLTF(`/models/Animals/${type}.gltf`)
     const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
     const { actions, names } = useAnimations(animations, group)
 
-    const { damagePlayer, blockchainActions } = useCubeStore(state => ({
+    const { damagePlayer, blockchainActions, realm } = useCubeStore(state => ({
         damagePlayer: state.damagePlayer,
-        blockchainActions: state.blockchainActions
+        blockchainActions: state.blockchainActions,
+        realm: state.realm
     }))
 
     const [health, setHealth] = useState(5)
@@ -26,20 +28,14 @@ export const Animal = ({ type, position: initialPosition }) => {
     const [moving, setMoving] = useState(false)
     const [lastAttackTime, setLastAttackTime] = useState(1e9) // High initial value prevents immediate attack
 
-    // Animation mapping to fix "weird" actions
-    const animMap = useMemo(() => {
-        const mapping = {
-            Chick: { walk: 'Run', run: 'Run', idle: 'Idle', attack: 'Attack', eat: 'Idle_Peck' },
-            Chicken: { walk: 'Run', run: 'Run', idle: 'Idle', attack: 'Attack', eat: 'Idle_Peck' },
-            Pig: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Headbutt', eat: 'Idle_Eating' },
-            Sheep: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Headbutt', eat: 'Idle_Eating' },
-            Wolf: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' },
-            Dog: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' },
-            Cat: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' },
-            Raccoon: { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' }
-        }
-        return mapping[type] || { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' }
-    }, [type])
+    // Configuration based on entity type
+    const config = useMemo(() => ANIMAL_CONFIG[type] || DEFAULT_ANIMAL_CONFIG, [type])
+    const animMap = config.animations
+    const scale = config.scale || 0.5
+    const speed = config.speed || 2
+    const runSpeed = config.runSpeed || 4
+    const attackRange = config.attackRange || 1.8
+    const chaseRange = config.chaseRange || 15
 
     // Choose random target on ground that is NOT in the river
     const getNewTarget = useCallback((currentPos) => {
@@ -91,18 +87,16 @@ export const Animal = ({ type, position: initialPosition }) => {
             return newHealth
         })
 
-        // Play a quick "hit" animation if available
         const hitAnim = actions[animMap.attack] || actions.Attack || actions.Headbutt
         if (hitAnim) {
             hitAnim.reset().fadeIn(0.1).setDuration(0.5).play()
         }
 
-        // Apply knockback
         if (rb.current) {
             const impulse = { x: (Math.random() - 0.5) * 5, y: 0, z: (Math.random() - 0.5) * 5 }
             rb.current.applyImpulse(impulse, true)
         }
-    }, [status, actions, animMap])
+    }, [status, actions, animMap, type, blockchainActions])
 
     useEffect(() => {
         if (status === 'dying') {
@@ -117,21 +111,22 @@ export const Animal = ({ type, position: initialPosition }) => {
 
             const timeout = setTimeout(() => {
                 setStatus('dead')
+                if (allPositions.current[id]) delete allPositions.current[id]
                 setTimeout(respawn, 1000)
             }, 3000)
             return () => clearTimeout(timeout)
         }
-    }, [status, actions, names, respawn])
+    }, [status, actions, names, respawn, id, allPositions])
 
     useEffect(() => {
         if (status !== 'alive') return
 
-        // Start with idle
         const idleAnim = actions[animMap.idle] || actions.Idle || Object.values(actions)[0]
         if (idleAnim) idleAnim.play()
 
         const interval = setInterval(() => {
-            if (type === 'Wolf' || type === 'Dog' || type === 'Raccoon') return
+            // Animals follow player in Snow realm, otherwise random walk
+            if (realm === 'Snow' || type === 'Wolf' || type === 'Dog' || type === 'Raccoon') return
 
             if (Math.random() > 0.7 && rb.current) {
                 const currentPos = rb.current.translation()
@@ -143,45 +138,29 @@ export const Animal = ({ type, position: initialPosition }) => {
         }, 3000)
 
         return () => clearInterval(interval)
-    }, [actions, names, getNewTarget, status, type, animMap])
+    }, [actions, names, getNewTarget, status, type, animMap, realm])
 
     useFrame((state, delta) => {
         if (status !== 'alive' || !rb.current || !group.current) return
 
         const currentPos = new THREE.Vector3().copy(rb.current.translation())
+        allPositions.current[id] = currentPos // Register current position
+
         const playerPos = state.camera.position
         const distToPlayer = currentPos.distanceTo(playerPos)
 
-        const isHostile = type === 'Wolf' || type === 'Dog' || type === 'Raccoon'
+        const isHostile = (type === 'Wolf' || type === 'Dog' || type === 'Raccoon') && realm !== 'Snow'
+        const shouldFollow = realm === 'Snow' || isHostile
 
-        if (isHostile && distToPlayer < 15) {
-            if (distToPlayer > 1.8) {
-                // Stop at river bank — don't chase into water
-                const nextX = currentPos.x + (playerPos.x - currentPos.x) * 0.1
-                const nextZ = currentPos.z + (playerPos.z - currentPos.z) * 0.1
-                if (useCubeStore.getState().isInRiver(nextX, nextZ)) {
-                    rb.current.setLinvel({ x: 0, y: rb.current.linvel().y, z: 0 }, true)
-                    return
-                }
-                const dir = playerPos.clone().sub(currentPos).normalize()
-                dir.y = 0
-                const velocity = rb.current.linvel()
-                rb.current.setLinvel({ x: dir.x * 5, y: velocity.y, z: dir.z * 5 }, true)
+        let movementDir = new THREE.Vector3(0, 0, 0)
+        let finalSpeed = speed
 
-                // Rotate
-                const targetPos = playerPos.clone()
-                targetPos.y = currentPos.y
-                const lookAtRotation = new THREE.Matrix4().lookAt(targetPos, currentPos, new THREE.Vector3(0, 1, 0))
-                const q = new THREE.Quaternion().setFromRotationMatrix(lookAtRotation)
-                group.current.quaternion.slerp(q, 0.1)
-
-                // Animation
-                const moveAnim = actions[animMap.run] || actions.Run || actions.Walk
-                if (moveAnim && !moveAnim.isRunning()) {
-                    Object.values(actions).forEach(a => a !== moveAnim && a.fadeOut(0.2))
-                    moveAnim.reset().fadeIn(0.2).play()
-                }
-            } else {
+        if (shouldFollow && distToPlayer < 20) {
+            if (distToPlayer > (isHostile ? 1.8 : 4)) {
+                // Determine direction to player
+                movementDir.subVectors(playerPos, currentPos).normalize()
+                finalSpeed = isHostile ? runSpeed + 1 : runSpeed
+            } else if (isHostile) {
                 // Attack Player
                 const now = state.clock.getElapsedTime()
                 if (now - lastAttackTime > 1.5) {
@@ -192,34 +171,62 @@ export const Animal = ({ type, position: initialPosition }) => {
                         attackAnim.reset().fadeIn(0.1).play()
                     }
                 }
-                rb.current.setLinvel({ x: 0, y: rb.current.linvel().y, z: 0 }, true)
             }
-            return
+        } else if (moving) {
+            const dist = currentPos.distanceTo(targetPosition)
+            if (dist > 1.0) {
+                movementDir.subVectors(targetPosition, currentPos).normalize()
+                finalSpeed = speed
+            } else {
+                setMoving(false)
+            }
         }
 
-        // Normal Passive Animal logic
-        const dist = currentPos.distanceTo(targetPosition)
-        if (moving && dist > 1.0) {
-            const dir = targetPosition.clone().sub(currentPos).normalize()
-            dir.y = 0
+        // Separation Force: Don't stack over each other
+        const separationForce = new THREE.Vector3(0, 0, 0)
+        let neighborCount = 0
+        const separationDistance = 3.0
+
+        Object.entries(allPositions.current).forEach(([neighborId, neighborPos]) => {
+            if (neighborId === id.toString()) return
+            const dist = currentPos.distanceTo(neighborPos)
+            if (dist < separationDistance && dist > 0) {
+                const diff = new THREE.Vector3().subVectors(currentPos, neighborPos)
+                diff.normalize().divideScalar(dist) // Weight by proximity
+                separationForce.add(diff)
+                neighborCount++
+            }
+        })
+
+        if (neighborCount > 0) {
+            separationForce.divideScalar(neighborCount)
+            movementDir.add(separationForce.multiplyScalar(2.0)) // Strength of separation
+        }
+
+        if (movementDir.lengthSq() > 0.01) {
+            movementDir.normalize()
+            movementDir.y = 0
+
             const velocity = rb.current.linvel()
-            rb.current.setLinvel({ x: dir.x * 3, y: velocity.y, z: dir.z * 3 }, true)
-            const targetPos = targetPosition.clone()
-            targetPos.y = currentPos.y
-            const lookAtRotation = new THREE.Matrix4().lookAt(targetPos, currentPos, new THREE.Vector3(0, 1, 0))
+            rb.current.setLinvel({
+                x: movementDir.x * finalSpeed,
+                y: velocity.y,
+                z: movementDir.z * finalSpeed
+            }, true)
+
+            // Look in direction of movement
+            const targetLook = currentPos.clone().add(movementDir)
+            const lookAtRotation = new THREE.Matrix4().lookAt(currentPos, targetLook, new THREE.Vector3(0, 1, 0))
             const q = new THREE.Quaternion().setFromRotationMatrix(lookAtRotation)
             group.current.quaternion.slerp(q, 0.1)
 
-            const moveAnim = actions[animMap.walk] || actions.Walk || actions.Run
-            if (moveAnim && !moveAnim.isRunning()) {
-                Object.values(actions).forEach(a => a !== moveAnim && a.fadeOut(0.2))
-                moveAnim.reset().fadeIn(0.2).play()
+            const mAnim = (finalSpeed > speed) ? (actions[animMap.run] || actions.Run) : (actions[animMap.walk] || actions.Walk)
+            if (mAnim && !mAnim.isRunning()) {
+                Object.values(actions).forEach(a => a !== mAnim && a.fadeOut(0.2))
+                mAnim.reset().fadeIn(0.2).play()
             }
         } else {
-            setMoving(false)
             rb.current.setLinvel({ x: 0, y: rb.current.linvel().y, z: 0 }, true)
-
-            // Randomly eat if idle
             const idleAnim = (Math.random() > 0.5 && actions[animMap.eat]) ? actions[animMap.eat] : (actions[animMap.idle] || actions.Idle)
             if (idleAnim && !idleAnim.isRunning()) {
                 Object.values(actions).forEach(a => a !== idleAnim && a.fadeOut(0.2))
@@ -236,14 +243,15 @@ export const Animal = ({ type, position: initialPosition }) => {
             name="Animal"
             type="dynamic"
             position={initialPosition}
-            colliders="cuboid"
-            lockRotations
+            colliders={false}
+            enabledRotations={[false, false, false]}
             onClick={handleAttack}
         >
-            <group ref={group} dispose={null} scale={0.5}>
-                <primitive object={clone} />
+            <group ref={group} dispose={null} scale={scale}>
+                <primitive object={clone} rotation={[0, Math.PI, 0]} />
             </group>
-            <FloatingHealthBar health={health} maxHealth={5} position={[0, 1.5, 0]} />
+            <CuboidCollider args={[0.4 * scale, 0.4 * scale, 0.6 * scale]} position={[0, 0.4 * scale, 0]} />
+            <FloatingHealthBar health={health} maxHealth={5} position={[0, scale * 2.5, 0]} />
         </RigidBody>
     )
 }

@@ -111,7 +111,7 @@ export default function Enemy({ type, position: initialPosition }) {
             // Rotate towards player
             const targetPos = playerPos.clone()
             targetPos.y = currentPos.y // Prevent pitching up/down
-            const lookAtRotation = new THREE.Matrix4().lookAt(targetPos, currentPos, new THREE.Vector3(0, 1, 0))
+            const lookAtRotation = new THREE.Matrix4().lookAt(currentPos, targetPos, new THREE.Vector3(0, 1, 0))
             const q = new THREE.Quaternion().setFromRotationMatrix(lookAtRotation)
             group.current.quaternion.slerp(q, 0.1)
 
@@ -161,10 +161,10 @@ export default function Enemy({ type, position: initialPosition }) {
             onClick={handleAttack}
         >
             <group ref={group} dispose={null} scale={scale}>
-                <primitive object={nodes.Root || Object.values(nodes)[0]} />
+                <primitive object={nodes.Root || Object.values(nodes)[0]} rotation={[0, Math.PI, 0]} />
             </group>
             <CuboidCollider args={[0.5 * scale, 1 * scale, 0.5 * scale]} position={[0, 1 * scale, 0]} />
-            <FloatingHealthBar health={health} maxHealth={maxHealth} position={[0, 2 * scale + 0.5, 0]} />
+            <FloatingHealthBar health={health} maxHealth={maxHealth} position={[0, scale * 2.5, 0]} />
         </RigidBody>
     )
 }

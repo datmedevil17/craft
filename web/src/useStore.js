@@ -93,6 +93,10 @@ export const useCubeStore = create((set) => ({
     // Flag to suppress the Game Menu when we programmatically close inventory via keys
     suppressNextMenuOpen: false,
     setSuppressNextMenuOpen: (v) => set({ suppressNextMenuOpen: v }),
+    isNFTDrawerOpen: false,
+    setNFTDrawerOpen: (open) => set({ isNFTDrawerOpen: open }),
+    selectedNFT: null,
+    setSelectedNFT: (nft) => set({ selectedNFT: nft }),
 
     // 9-slot hotbar: starts empty
     hotbarSlots: Array(9).fill(null),
