@@ -296,8 +296,36 @@ export const UI = () => {
         erGameSession
     } = useMinecraftProgram()
 
+    // Onboarding flow state
+    const isProfileReady = !!profile
+    const isSessionReady = !!sessionToken
+    const isDelegated = delegationStatus === "delegated"
+
     const [userInput, setUserInput] = React.useState("")
     const [hoveredItem, setHoveredItem] = React.useState(null) // for tooltip
+    const { addToast } = useCubeStore()
+
+    // Auto-transition and feedback logic
+    React.useEffect(() => {
+        if (!connected || gameStarted) return
+
+        if (isProfileReady && !isSessionReady) {
+            // Check if we just connected and profile was already there
+            const hasToastedProfile = sessionStorage.getItem("hasToastedProfile")
+            if (!hasToastedProfile) {
+                addToast("Profile already initialized")
+                sessionStorage.setItem("hasToastedProfile", "true")
+            }
+        }
+
+        if (isSessionReady) {
+            const hasLoggedSession = sessionStorage.getItem("hasLoggedSession")
+            if (!hasLoggedSession) {
+                console.log("session key present")
+                sessionStorage.setItem("hasLoggedSession", "true")
+            }
+        }
+    }, [connected, isProfileReady, isSessionReady, gameStarted, addToast])
 
     const handleSend = async () => {
         if (!userInput.trim()) return
@@ -306,11 +334,6 @@ export const UI = () => {
         setNPCResponse(response)
         setUserInput("")
     }
-
-    // Onboarding flow state
-    const isProfileReady = !!profile
-    const isSessionReady = !!sessionToken
-    const isDelegated = delegationStatus === "delegated"
 
     // Bridge blockchain actions to store
     React.useEffect(() => {
@@ -555,76 +578,167 @@ export const UI = () => {
             )
         }
 
+        if (isDelegated) {
+            return (
+                <div style={{
+                    position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    justifyContent: "center", color: "white", fontFamily: "'Press Start 2P', cursive",
+                    zIndex: 2000, pointerEvents: "auto"
+                }}>
+                    {/* Background Logo with Light Black Overlay */}
+                    <div style={{
+                        position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                        backgroundImage: "url(/mainLogio.png)", backgroundSize: "cover",
+                        backgroundPosition: "center", zIndex: -2
+                    }} />
+                    <div style={{
+                        position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                        background: "rgba(0, 0, 0, 0.6)", zIndex: -1
+                    }} />
+
+                    <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10000 }}>
+                        <WalletMultiButton />
+                    </div>
+
+
+                    <p style={{ marginBottom: "30px", fontSize: "14px", letterSpacing: "2px" }}>
+                        SELECT YOUR REALM
+                    </p>
+
+                    <div style={{ display: "flex", gap: "30px" }}>
+                        {Object.keys(REALM_CONFIG).map((r) => {
+                            const config = REALM_CONFIG[r]
+                            return (
+                                <div
+                                    key={r} onClick={() => {
+                                        blockchainActions.enterGame(r)
+                                        startGame(r)
+                                    }}
+                                    style={{
+                                        width: "200px", height: "280px", background: "rgba(255,255,255,0.05)",
+                                        backdropFilter: "blur(10px)",
+                                        borderRadius: "15px", border: "1px solid rgba(255,255,255,0.2)",
+                                        cursor: "pointer", display: "flex", flexDirection: "column",
+                                        alignItems: "center", justifyContent: "flex-end",
+                                        transition: "all 0.3s", position: "relative", overflow: "hidden",
+                                        padding: "20px", boxSizing: "border-box"
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.border = "1px solid #fff"; e.currentTarget.style.transform = "translateY(-10px)" }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.border = "1px solid rgba(255,255,255,0.2)"; e.currentTarget.style.transform = "translateY(0)" }}
+                                >
+                                    <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", background: `url(${config.preview}) center/cover no-repeat`, opacity: 0.6 }}></div>
+                                    <h2 style={{ zIndex: 1, margin: "0 0 10px 0", fontSize: "16px", textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>{r}</h2>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )
+        }
+
         return (
             <div style={{
                 position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
-                background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)",
                 display: "flex", flexDirection: "column", alignItems: "center",
                 justifyContent: "center", color: "white", fontFamily: "'Press Start 2P', cursive",
                 zIndex: 2000, pointerEvents: "auto"
             }}>
+                {/* Background Logo with Light Black Overlay */}
+                <div style={{
+                    position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                    backgroundImage: "url(/mainLogio.png)", backgroundSize: "cover",
+                    backgroundPosition: "center", zIndex: -2
+                }} />
+                <div style={{
+                    position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                    background: "rgba(0, 0, 0, 0.6)", zIndex: -1
+                }} />
+
                 <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10000 }}>
                     <WalletMultiButton />
                 </div>
 
-                <h1 style={{
-                    fontSize: "52px", marginBottom: "10px", color: "#fff",
-                    textShadow: "0 0 20px rgba(74,144,226,0.8)", letterSpacing: "4px", fontWeight: "900"
-                }}>MAGICCRAFT</h1>
 
-                {/* Onboarding Steps */}
-                <div style={{ display: "flex", gap: "10px", marginBottom: "40px", marginTop: "20px" }}>
-                    {setupSteps.map((s, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <div
-                                onClick={() => s.current && handleStepAction(s)}
-                                style={{
-                                    padding: "10px 15px", borderRadius: "8px", fontSize: "10px",
-                                    background: s.done ? "#55FF55" : (s.current ? "#4a90e2" : "#333"),
-                                    color: s.done ? "black" : "white",
-                                    cursor: s.current ? "pointer" : "default",
-                                    border: s.current ? "2px solid white" : "2px solid transparent",
-                                    opacity: (s.done || s.current) ? 1 : 0.5,
-                                    transition: "all 0.3s"
-                                }}
-                            >
-                                {s.done ? "✓ " : ""}{s.label}
-                                {s.current && isLoading && "..."}
-                            </div>
-                            {i < setupSteps.length - 1 && <div style={{ color: "#555" }}>→</div>}
-                        </div>
-                    ))}
-                </div>
+                <div style={{
+                    background: "rgba(255, 255, 255, 0.05)",
+                    backdropFilter: "blur(12px)",
+                    borderRadius: "24px",
+                    padding: "40px",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "20px",
+                    width: "400px"
+                }}>
+                    {!connected && (
+                        <button
+                            onClick={() => setVisible(true)}
+                            style={{
+                                width: "100%", padding: "18px", background: "#4a90e2",
+                                color: "white", border: "none", borderRadius: "12px",
+                                fontSize: "14px", cursor: "pointer", transition: "all 0.2s",
+                                fontFamily: "'Press Start 2P', cursive"
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                        >
+                            CONNECT WALLET
+                        </button>
+                    )}
 
-                <p style={{ marginBottom: "30px", fontSize: "14px", opacity: isDelegated ? 1 : 0.5, letterSpacing: "2px" }}>
-                    {isDelegated ? "SELECT YOUR REALM" : "COMPLETE STEPS ABOVE TO PLAY"}
-                </p>
+                    {connected && !isProfileReady && (
+                        <button
+                            disabled={isLoading}
+                            onClick={initializeProfile}
+                            style={{
+                                width: "100%", padding: "18px", background: "#55FF55",
+                                color: "black", border: "none", borderRadius: "12px",
+                                fontSize: "14px", cursor: "pointer", transition: "all 0.2s",
+                                fontFamily: "'Press Start 2P', cursive"
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                        >
+                            {isLoading ? "INITIALIZING..." : "INIT PROFILE"}
+                        </button>
+                    )}
 
-                <div style={{ display: "flex", gap: "30px", opacity: isDelegated ? 1 : 0.3, pointerEvents: isDelegated ? "auto" : "none" }}>
-                    {Object.keys(REALM_CONFIG).map((r) => {
-                        const config = REALM_CONFIG[r]
-                        return (
-                            <div
-                                key={r} onClick={() => {
-                                    blockchainActions.enterGame(r)
-                                    startGame(r)
-                                }}
-                                style={{
-                                    width: "200px", height: "280px", background: "rgba(0,0,0,0.4)",
-                                    borderRadius: "15px", border: "2px solid rgba(255,255,255,0.1)",
-                                    cursor: "pointer", display: "flex", flexDirection: "column",
-                                    alignItems: "center", justifyContent: "flex-end",
-                                    transition: "all 0.3s", position: "relative", overflow: "hidden",
-                                    padding: "20px", boxSizing: "border-box"
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.border = "2px solid #fff"; e.currentTarget.style.transform = "translateY(-10px)" }}
-                                onMouseLeave={(e) => { e.currentTarget.style.border = "2px solid rgba(255,255,255,0.1)"; e.currentTarget.style.transform = "translateY(0)" }}
-                            >
-                                <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", background: `url(${config.preview}) center/cover no-repeat`, opacity: 0.6 }}></div>
-                                <h2 style={{ zIndex: 1, margin: "0 0 10px 0", fontSize: "16px", textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>{r}</h2>
-                            </div>
-                        )
-                    })}
+                    {connected && isProfileReady && !isSessionReady && (
+                        <button
+                            disabled={isSessionLoading}
+                            onClick={createSession}
+                            style={{
+                                width: "100%", padding: "18px", background: "#FFB000",
+                                color: "black", border: "none", borderRadius: "12px",
+                                fontSize: "14px", cursor: "pointer", transition: "all 0.2s",
+                                fontFamily: "'Press Start 2P', cursive"
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                        >
+                            {isSessionLoading ? "CREATING..." : "INIT SESSION"}
+                        </button>
+                    )}
+
+                    {connected && isProfileReady && isSessionReady && (
+                        <button
+                            disabled={isLoading}
+                            onClick={delegateSession}
+                            style={{
+                                width: "100%", padding: "24px", background: "#55FF55",
+                                color: "black", border: "none", borderRadius: "12px",
+                                fontSize: "18px", cursor: "pointer", transition: "all 0.2s",
+                                fontFamily: "'Press Start 2P', cursive", fontWeight: "bold",
+                                boxShadow: "0 0 20px rgba(85,255,85,0.4)"
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                        >
+                            {isLoading ? "DELEGATING..." : "ENTER"}
+                        </button>
+                    )}
                 </div>
             </div>
         )

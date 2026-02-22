@@ -215,7 +215,7 @@ export function useMinecraftProgram() {
 
             const txHash = await erConnection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
             await erConnection.confirmTransaction(txHash, "confirmed");
-            useCubeStore.getState().addToast(txHash, actionName);
+            useCubeStore.getState().addToast(actionName, txHash);
             await fetchErAccount();
             return txHash;
         } catch (err) {
@@ -235,7 +235,7 @@ export function useMinecraftProgram() {
                 .initialize()
                 .accounts({ authority: wallet.publicKey })
                 .rpc();
-            useCubeStore.getState().addToast(tx, "Initialize");
+            useCubeStore.getState().addToast("Initialize", tx);
             await fetchAccount();
         } finally { setIsLoading(false); }
     }, [program, wallet.publicKey, fetchAccount]);
@@ -248,7 +248,7 @@ export function useMinecraftProgram() {
                 .delegate()
                 .accounts({ payer: wallet.publicKey })
                 .rpc({ skipPreflight: true });
-            useCubeStore.getState().addToast(tx, "Delegate");
+            useCubeStore.getState().addToast("Delegate", tx);
             await new Promise(r => setTimeout(r, 2000));
             await checkDelegation();
         } finally { setIsLoading(false); setIsDelegating(false); }
@@ -275,7 +275,7 @@ export function useMinecraftProgram() {
 
             const txHash = await erConnection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
             await erConnection.confirmTransaction(txHash, "confirmed");
-            useCubeStore.getState().addToast(txHash, "Commit");
+            useCubeStore.getState().addToast("Commit", txHash);
             await fetchAccount();
         } finally { setIsLoading(false); }
     }, [program, wallet, erConnection, fetchAccount]);
@@ -295,7 +295,7 @@ export function useMinecraftProgram() {
 
             const txHash = await erConnection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
             await erConnection.confirmTransaction(txHash, "confirmed");
-            useCubeStore.getState().addToast(txHash, "Undelegate");
+            useCubeStore.getState().addToast("Undelegate", txHash);
             await new Promise(r => setTimeout(r, 2000));
             setDelegationStatus("undelegated");
             await fetchAccount();

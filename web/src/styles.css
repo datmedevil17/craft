@@ -171,7 +171,7 @@ button {
   justify-content: flex-end;
 }
 
-.pmndrs-menu > div {
+.pmndrs-menu>div {
   word-wrap: none;
   word-break: none;
   white-space: pre;
@@ -183,7 +183,7 @@ button {
   flex-direction: column;
 }
 
-.pmndrs-menu > div b {
+.pmndrs-menu>div b {
   font-weight: 600;
   color: #b0b0b0;
 }

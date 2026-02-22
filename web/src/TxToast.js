@@ -20,13 +20,13 @@ function Toast({ toast }) {
         return () => clearTimeout(timer)
     }, [toast.id, removeToast])
 
-    const explorerUrl = `${EXPLORER_BASE}/${toast.hash}?cluster=${CLUSTER}`
-    const shortHash = `${toast.hash.slice(0, 6)}…${toast.hash.slice(-4)}`
+    const explorerUrl = toast.hash ? `${EXPLORER_BASE}/${toast.hash}?cluster=${CLUSTER}` : null
+    const shortHash = toast.hash ? `${toast.hash.slice(0, 6)}…${toast.hash.slice(-4)}` : null
 
     return (
         <div
-            onClick={() => window.open(explorerUrl, "_blank", "noopener,noreferrer")}
-            title="Click to view on Solana Explorer"
+            onClick={() => explorerUrl && window.open(explorerUrl, "_blank", "noopener,noreferrer")}
+            title={toast.hash ? "Click to view on Solana Explorer" : ""}
             style={{
                 display: "flex",
                 flexDirection: "column",
@@ -56,9 +56,9 @@ function Toast({ toast }) {
         >
             {/* Header row */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "10px", color: "#55FF55" }}>✔</span>
+                <span style={{ fontSize: "10px", color: "#55FF55" }}>{toast.hash ? "✔" : "ℹ"}</span>
                 <span style={{ fontSize: "9px", color: "#55FF55", letterSpacing: "1px" }}>
-                    TX SUCCESS
+                    {toast.hash ? "TX SUCCESS" : "MESSAGE"}
                 </span>
             </div>
 
@@ -67,21 +67,25 @@ function Toast({ toast }) {
                 {toast.label}
             </div>
 
-            {/* Hash */}
-            <div style={{ fontSize: "7px", color: "#888888", fontFamily: "monospace", letterSpacing: "0.5px" }}>
-                {shortHash}
-            </div>
+            {toast.hash && (
+                <>
+                    {/* Hash */}
+                    <div style={{ fontSize: "7px", color: "#888888", fontFamily: "monospace", letterSpacing: "0.5px" }}>
+                        {shortHash}
+                    </div>
 
-            {/* CTA */}
-            <div style={{
-                marginTop: "4px",
-                fontSize: "7px",
-                color: "#55FF55",
-                opacity: 0.75,
-                letterSpacing: "0.5px",
-            }}>
-                VIEW ON EXPLORER →
-            </div>
+                    {/* CTA */}
+                    <div style={{
+                        marginTop: "4px",
+                        fontSize: "7px",
+                        color: "#55FF55",
+                        opacity: 0.75,
+                        letterSpacing: "0.5px",
+                    }}>
+                        VIEW ON EXPLORER →
+                    </div>
+                </>
+            )}
         </div>
     )
 }

@@ -48,7 +48,7 @@ export const useCubeStore = create((set) => ({
 
     // ── TX Toasts ─────────────────────────────────────────────────────────────
     toasts: [],
-    addToast: (hash, label) => set((state) => ({
+    addToast: (label, hash) => set((state) => ({
         toasts: [...state.toasts, { id: Date.now() + Math.random(), hash, label }]
     })),
     removeToast: (id) => set((state) => ({
