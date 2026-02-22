@@ -401,23 +401,36 @@ export const UI = () => {
     React.useEffect(() => {
         if (!connected || gameStarted) return
 
-        if (isProfileReady && !isSessionReady) {
-            // Check if we just connected and profile was already there
-            const hasToastedProfile = sessionStorage.getItem("hasToastedProfile")
-            if (!hasToastedProfile) {
-                addToast("Profile already initialized")
-                sessionStorage.setItem("hasToastedProfile", "true")
+        if (isProfileReady) {
+            console.log(`[Login Check] Profile detected for ${publicKey?.toBase58()}`);
+            console.log(`[Login Check] Session exists: ${isSessionReady ? "YES" : "NO"}`);
+            console.log(`[Login Check] Delegated: ${isDelegated ? "YES" : "NO"}`);
+
+            if (!isSessionReady) {
+                const hasToastedProfile = sessionStorage.getItem("hasToastedProfile")
+                if (!hasToastedProfile) {
+                    addToast("Profile ready - Please Init Session")
+                    sessionStorage.setItem("hasToastedProfile", "true")
+                }
             }
         }
 
         if (isSessionReady) {
             const hasLoggedSession = sessionStorage.getItem("hasLoggedSession")
             if (!hasLoggedSession) {
-                console.log("session key present")
+                console.log("[Login Check] Session key present and active");
                 sessionStorage.setItem("hasLoggedSession", "true")
             }
         }
-    }, [connected, isProfileReady, isSessionReady, gameStarted, addToast])
+
+        if (isDelegated) {
+            const hasLoggedDelegation = sessionStorage.getItem("hasLoggedDelegation")
+            if (!hasLoggedDelegation) {
+                console.log("[Login Check] Account successfully delegated to Magicblock ER");
+                sessionStorage.setItem("hasLoggedDelegation", "true")
+            }
+        }
+    }, [connected, isProfileReady, isSessionReady, isDelegated, gameStarted, addToast, publicKey])
 
     const handleSend = async () => {
         if (!userInput.trim()) return
@@ -699,23 +712,23 @@ export const UI = () => {
         if (isDelegated) {
             return (
                 <div style={{
-                    position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                    position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
                     display: "flex", flexDirection: "column", alignItems: "center",
                     justifyContent: "center", color: "white", fontFamily: "'Press Start 2P', cursive",
-                    zIndex: 2000, pointerEvents: "auto"
+                    zIndex: 100, pointerEvents: "auto"
                 }}>
                     {/* Background Logo with Light Black Overlay */}
                     <div style={{
                         position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
                         backgroundImage: "url(/mainLogio.png)", backgroundSize: "cover",
-                        backgroundPosition: "center", zIndex: -2
+                        backgroundPosition: "center", zIndex: -2, pointerEvents: "none"
                     }} />
                     <div style={{
                         position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
-                        background: "rgba(0, 0, 0, 0.6)", zIndex: -1
+                        background: "rgba(0, 0, 0, 0.6)", zIndex: -1, pointerEvents: "none"
                     }} />
 
-                    <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10000 }}>
+                    <div style={{ position: "absolute", top: 20, right: 20, zIndex: 101, pointerEvents: "auto" }}>
                         <WalletMultiButton />
                     </div>
 
@@ -757,23 +770,23 @@ export const UI = () => {
 
         return (
             <div style={{
-                position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
                 display: "flex", flexDirection: "column", alignItems: "center",
                 justifyContent: "center", color: "white", fontFamily: "'Press Start 2P', cursive",
-                zIndex: 2000, pointerEvents: "auto"
+                zIndex: 100, pointerEvents: "auto"
             }}>
                 {/* Background Logo with Light Black Overlay */}
                 <div style={{
                     position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
                     backgroundImage: "url(/mainLogio.png)", backgroundSize: "cover",
-                    backgroundPosition: "center", zIndex: -2
+                    backgroundPosition: "center", zIndex: -2, pointerEvents: "none"
                 }} />
                 <div style={{
                     position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
-                    background: "rgba(0, 0, 0, 0.6)", zIndex: -1
+                    background: "rgba(0, 0, 0, 0.6)", zIndex: -1, pointerEvents: "none"
                 }} />
 
-                <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10000 }}>
+                <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10001, pointerEvents: "auto" }}>
                     <WalletMultiButton />
                 </div>
 

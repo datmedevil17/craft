@@ -6,7 +6,7 @@ import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
 
 // Default styles that can be overridden by your app
-require('@solana/wallet-adapter-react-ui/styles.css');
+import '@solana/wallet-adapter-react-ui/styles.css';
 
 export const SolanaProvider = ({ children }) => {
     // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'.
@@ -16,7 +16,10 @@ export const SolanaProvider = ({ children }) => {
     const endpoint = "https://devnet.helius-rpc.com/?api-key=9ca29b35-645b-47ec-8787-af25bc43be2c";
 
     const wallets = useMemo(
-        () => [],
+        () => [
+            new PhantomWalletAdapter(),
+            new SolflareWalletAdapter(),
+        ],
         []
     );
 
