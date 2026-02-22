@@ -11,9 +11,7 @@ export const OtherPlayers = () => {
     return (
         <group>
             {Object.values(players).map((player) => {
-                // Don't render self
                 if (player.walletAddress === myWallet) return null
-
                 return (
                     <OtherPlayer
                         key={player.walletAddress}
@@ -21,6 +19,11 @@ export const OtherPlayers = () => {
                         position={player.position}
                         rotation={player.rotation}
                         walletAddress={player.walletAddress}
+                        hp={player.hp}
+                        maxHp={player.maxHp}
+                        username={player.username}
+                        alive={player.alive}
+                        currentAction={player.currentAction || 'idle'}
                     />
                 )
             })}

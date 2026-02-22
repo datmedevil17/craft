@@ -18,6 +18,7 @@ import { inventoryFlags } from "./inventoryFlags"
 import { TxToast } from "./TxToast"
 import { SocketProvider } from "./SocketContext"
 import { OtherPlayers } from "./OtherPlayers"
+import Boss3D from "./Boss3D"
 import { TestPage } from "./TestPage"
 
 const isTestPage = window.location.pathname === "/test"
@@ -51,6 +52,7 @@ function Game() {
           <>
             <Player />
             <OtherPlayers />
+            <Boss3D />
             <Animals />
             <NPCs />
             <Enemies />

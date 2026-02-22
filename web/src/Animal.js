@@ -41,22 +41,30 @@ export const Animal = ({ type, position: initialPosition }) => {
         return mapping[type] || { walk: 'Walk', run: 'Run', idle: 'Idle', attack: 'Attack' }
     }, [type])
 
-    // Choose random target on ground
+    // Choose random target on ground that is NOT in the river
     const getNewTarget = useCallback((currentPos) => {
         const range = 20
-        return new THREE.Vector3(
-            currentPos.x + (Math.random() - 0.5) * range,
-            currentPos.y,
-            currentPos.z + (Math.random() - 0.5) * range
-        )
+        for (let i = 0; i < 8; i++) {
+            const x = currentPos.x + (Math.random() - 0.5) * range
+            const z = currentPos.z + (Math.random() - 0.5) * range
+            if (!useCubeStore.getState().isInRiver(x, z)) {
+                return new THREE.Vector3(x, currentPos.y, z)
+            }
+        }
+        // fallback: stay put
+        return new THREE.Vector3(currentPos.x, currentPos.y, currentPos.z)
     }, [])
 
     const respawn = useCallback(() => {
-        const newPos = [
-            (Math.random() - 0.5) * 50,
-            5,
-            (Math.random() - 0.5) * 50
-        ]
+        let newPos = [0, 5, 50] // default safe
+        for (let i = 0; i < 20; i++) {
+            const x = (Math.random() - 0.5) * 100
+            const z = (Math.random() - 0.5) * 100
+            if (!useCubeStore.getState().isInRiver(x, z)) {
+                newPos = [x, 5, z]
+                break
+            }
+        }
         setTargetPosition(new THREE.Vector3(...newPos))
         setHealth(5)
         setStatus('alive')
@@ -148,7 +156,13 @@ export const Animal = ({ type, position: initialPosition }) => {
 
         if (isHostile && distToPlayer < 15) {
             if (distToPlayer > 1.8) {
-                // Chase
+                // Stop at river bank — don't chase into water
+                const nextX = currentPos.x + (playerPos.x - currentPos.x) * 0.1
+                const nextZ = currentPos.z + (playerPos.z - currentPos.z) * 0.1
+                if (useCubeStore.getState().isInRiver(nextX, nextZ)) {
+                    rb.current.setLinvel({ x: 0, y: rb.current.linvel().y, z: 0 }, true)
+                    return
+                }
                 const dir = playerPos.clone().sub(currentPos).normalize()
                 dir.y = 0
                 const velocity = rb.current.linvel()

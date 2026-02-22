@@ -36,7 +36,7 @@ export const REALM_CONFIG = {
 export const useCubeStore = create((set) => ({
     gameStarted: false,
     realm: "Jungle",
-    playerHealth: 100,
+    playerHealth: 30,
     isGameOver: false,
     invincible: false,
     blockchainActions: {
@@ -65,6 +65,15 @@ export const useCubeStore = create((set) => ({
                 return cx !== x || cy !== y || cz !== z
             }),
         })),
+    // Socket actions bridge — set by SocketContext, callable from inside R3F Canvas
+    socketActions: {
+        placeBlock: () => { },
+        removeBlock: () => { },
+        sendAction: () => { },
+        attackPlayer: () => { },
+        attackBoss: () => { },
+    },
+    setSocketActions: (actions) => set({ socketActions: actions }),
     currentTool: "Axe_Wood",
     currentBlock: "Block_Grass",
     tools: [],
@@ -121,7 +130,7 @@ export const useCubeStore = create((set) => ({
             enemies: config.enemies,
             currentBlock: null,
             currentTool: config.tools[0],
-            playerHealth: 100,
+            playerHealth: 30,
             isGameOver: false,
             invincible: true,
             hotbarSlots: Array(9).fill(null),
@@ -142,9 +151,10 @@ export const useCubeStore = create((set) => ({
             isGameOver: newHealth <= 0
         }
     }),
-    healPlayer: (amount) => set((state) => ({ playerHealth: Math.min(100, state.playerHealth + amount) })),
+    setPlayerHealth: (hp) => set({ playerHealth: hp, isGameOver: hp <= 0 }),
+    healPlayer: (amount) => set((state) => ({ playerHealth: Math.min(30, state.playerHealth + amount) })),
     restartGame: () => {
-        set({ gameStarted: false, isGameOver: false, playerHealth: 100, invincible: true, showUndelegatePrompt: false })
+        set({ gameStarted: false, isGameOver: false, playerHealth: 30, invincible: true, showUndelegatePrompt: false })
         setTimeout(() => set({ invincible: false }), 3000)
     },
     endGame: () => {
@@ -178,6 +188,6 @@ export const useCubeStore = create((set) => ({
         const state = useCubeStore.getState()
         if (state.realm !== 'Jungle') return false
         const riverZ = 30.0 * Math.sin(x * 0.02)
-        return Math.abs(z - riverZ) < 15 // Increased buffer for large assets
+        return Math.abs(z - riverZ) < 22 // river width(15) + 7 unit visual clearance
     }
 }))

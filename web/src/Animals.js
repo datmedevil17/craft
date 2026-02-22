@@ -22,7 +22,7 @@ export const Animals = () => {
                 }
                 attempts++
             }
-            if (!pos) pos = [30, 5, 30] // Fallback
+            if (!pos) pos = [0, 5, 50] // Fallback — safe from river
 
             return {
                 id: i,

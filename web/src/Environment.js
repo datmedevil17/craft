@@ -22,20 +22,22 @@ const REALM_ASSETS = {
     ]
 }
 
+// River exclusion buffer: river visual half-width (15) + 25 units clearance for large trees
+// Defined at module level so it's never captured stale in useMemo closures
+const RIVER_EXCLUSION = 40
+
 export const Environment = () => {
-    const { realm, isInRiver } = useCubeStore()
+    const { realm } = useCubeStore()
 
     const { items, mountains } = useMemo(() => {
         const assets = REALM_ASSETS[realm] || REALM_ASSETS.Jungle
-        const count = realm === 'Jungle' ? 2000 : 800 // High density for Jungle
+        const count = realm === 'Jungle' ? 2000 : 800
         const items = []
         const localMountains = []
-        const range = 300 // Expanded range
-        const minDistance = realm === 'Jungle' ? 3 : 6 // Jungle is denser
-        const safeRadius = 25 // Wider safe zone
-        const riverWidth = 10 // Wide enough to be visible
+        const range = 300
+        const minDistance = realm === 'Jungle' ? 3 : 6
+        const safeRadius = 25
 
-        // Generate Mountains at edges for Desert/Snow
         if (realm === 'Desert' || realm === 'Snow') {
             for (let i = 0; i < 15; i++) {
                 const angle = (i / 15) * Math.PI * 2
@@ -50,48 +52,35 @@ export const Environment = () => {
             }
         }
 
-        // Generate random elements
         for (let i = 0; i < count; i++) {
             const x = (Math.random() - 0.5) * range
             const z = (Math.random() - 0.5) * range
 
-            // Don't spawn in center safe zone
             const distFromCenter = Math.sqrt(x * x + z * z)
             if (distFromCenter < safeRadius) continue
 
-            // Don't spawn in the river
-            if (isInRiver(x, z)) continue
+            // Hard exclusion from river — 40 unit buffer (river=15 wide + 25 clearance)
+            if (realm === 'Jungle') {
+                const riverZ = 30.0 * Math.sin(x * 0.02)
+                if (Math.abs(z - riverZ) < RIVER_EXCLUSION) continue
+            }
 
             let tooClose = false
             for (const item of items) {
                 const dx = item.position[0] - x
                 const dz = item.position[2] - z
-                const distSq = dx * dx + dz * dz
-                if (distSq < minDistance * minDistance) {
-                    tooClose = true
-                    break
-                }
+                if (dx * dx + dz * dz < minDistance * minDistance) { tooClose = true; break }
             }
 
             if (!tooClose) {
                 const type = assets[Math.floor(Math.random() * assets.length)]
                 let scale = 0.8 + Math.random() * 0.7
-
-                // Increase crystal size in snow
-                if (realm === 'Snow' && type.includes('Crystal')) {
-                    scale *= 3.5 // Make them significantly larger and more "ancient"
-                }
-
-                items.push({
-                    id: i,
-                    type,
-                    position: [x, 0, z],
-                    rotation: [0, Math.random() * Math.PI * 2, 0],
-                    scale
-                })
+                if (realm === 'Snow' && type.includes('Crystal')) scale *= 3.5
+                items.push({ id: i, type, position: [x, 0, z], rotation: [0, Math.random() * Math.PI * 2, 0], scale })
             }
         }
         return { items, mountains: localMountains }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [realm])
 
     return (

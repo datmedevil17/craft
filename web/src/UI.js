@@ -6,6 +6,7 @@ import { useWallet } from "@solana/wallet-adapter-react"
 import { useMinecraftProgram, KILL_REWARDS } from "./hooks/use-minecraft-program"
 import { getNPCResponse } from "./aiService"
 import { ENTITY_MINTS } from "./MintConfig"
+import { useSocket } from "./SocketContext"
 
 // Visual display map for every block and tool
 const ITEM_DISPLAY = {
@@ -57,6 +58,198 @@ function ItemSlotContent({ item }) {
             <span style={{ fontSize: '7px', color: '#fff', textShadow: '1px 1px 0 #000', marginTop: '2px', textAlign: 'center', lineHeight: 1, wordBreak: 'break-word', padding: '0 2px' }}>
                 {label}
             </span>
+        </div>
+    )
+}
+
+// ─── Online Players Count ─────────────────────────────────────────────────────
+function OnlinePlayersCount() {
+    const { players } = useSocket()
+    const count = Object.keys(players).length
+
+    return (
+        <div style={{ fontSize: '12px', color: '#7ec87e', marginTop: '4px' }}>
+            👥 {count} player{count !== 1 ? 's' : ''} online
+        </div>
+    )
+}
+
+// ─── Boss HP Bar ──────────────────────────────────────────────────────────────
+function BossHpBar() {
+    const { bossState } = useSocket()
+    if (!bossState || !bossState.alive) return null
+
+    const hpPct = Math.max(0, (bossState.hp / bossState.maxHp) * 100)
+    const barColor = hpPct > 50
+        ? 'linear-gradient(90deg, #ff3333, #cc0000)'
+        : hpPct > 25
+            ? 'linear-gradient(90deg, #ff8800, #cc5500)'
+            : 'linear-gradient(90deg, #ff0000, #880000)'
+
+    return (
+        <div style={{
+            position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 2000, pointerEvents: 'none', textAlign: 'center',
+            fontFamily: "'Press Start 2P', monospace"
+        }}>
+            <div style={{
+                color: '#ff4444', fontSize: '12px', fontWeight: 'bold',
+                textShadow: '2px 2px 4px #000', marginBottom: '4px'
+            }}>
+                ⚔️ {bossState.type.toUpperCase()} ⚔️
+            </div>
+            <div style={{
+                width: '300px', height: '18px',
+                background: 'rgba(0,0,0,0.7)', borderRadius: '9px',
+                border: '2px solid #ff4444', overflow: 'hidden', position: 'relative'
+            }}>
+                <div style={{
+                    width: `${hpPct}%`, height: '100%', background: barColor,
+                    transition: 'width 0.3s ease', borderRadius: '7px'
+                }} />
+                <div style={{
+                    position: 'absolute', width: '100%', textAlign: 'center', top: 2,
+                    fontSize: '9px', color: '#fff', fontWeight: 'bold', textShadow: '1px 1px 2px #000'
+                }}>
+                    {bossState.hp} / {bossState.maxHp}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─── Chat Overlay ─────────────────────────────────────────────────────────────
+function ChatOverlay() {
+    const { chatMessages, sendChat, sendWhisper, players } = useSocket()
+    const { publicKey } = useWallet()
+    const [chatInput, setChatInput] = React.useState('')
+    const [chatFocused, setChatFocused] = React.useState(false)
+    const chatListRef = React.useRef(null)
+    const inputRef = React.useRef(null)
+    const myWallet = publicKey?.toBase58()
+
+    // Auto-scroll
+    React.useEffect(() => {
+        if (chatListRef.current) {
+            chatListRef.current.scrollTop = chatListRef.current.scrollHeight
+        }
+    }, [chatMessages])
+
+    // Enter to focus chat
+    React.useEffect(() => {
+        const handleKey = (e) => {
+            if (e.key === 'Enter' && !chatFocused && document.pointerLockElement) {
+                e.preventDefault()
+                setChatFocused(true)
+                // Release pointer lock for typing
+                document.exitPointerLock()
+                setTimeout(() => inputRef.current?.focus(), 50)
+            }
+        }
+        document.addEventListener('keydown', handleKey)
+        return () => document.removeEventListener('keydown', handleKey)
+    }, [chatFocused])
+
+    const handleSend = () => {
+        if (!chatInput.trim()) { setChatFocused(false); return }
+
+        // Whisper: /w <username> <message>
+        const whisperMatch = chatInput.match(/^\/w\s+(\S+)\s+(.+)/)
+        if (whisperMatch) {
+            const targetName = whisperMatch[1]
+            const msg = whisperMatch[2]
+            // Find target wallet by username
+            const target = Object.values(players).find(p =>
+                p.username === targetName || p.walletAddress?.startsWith(targetName)
+            )
+            if (target) {
+                sendWhisper(target.walletAddress, msg)
+            }
+        } else {
+            sendChat(chatInput)
+        }
+        setChatInput('')
+        setChatFocused(false)
+    }
+
+    // Show last 15 messages (or fewer)
+    const visibleMessages = chatMessages.slice(-15)
+
+    return (
+        <div style={{
+            position: 'fixed', bottom: 90, left: 10, width: '320px',
+            zIndex: 1500, fontFamily: "'VT323', monospace", pointerEvents: chatFocused ? 'auto' : 'none'
+        }}>
+            {/* Message list */}
+            <div
+                ref={chatListRef}
+                style={{
+                    maxHeight: '180px', overflowY: 'auto', overflowX: 'hidden',
+                    background: chatFocused ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)',
+                    borderRadius: '6px 6px 0 0', padding: '6px',
+                    transition: 'background 0.2s ease'
+                }}
+            >
+                {visibleMessages.map((msg, i) => (
+                    <div key={i} style={{
+                        fontSize: '13px', lineHeight: '1.3', marginBottom: '2px', wordBreak: 'break-word',
+                        color: msg.system ? '#ffcc00' : msg.whisper ? '#c792ea' : '#fff',
+                        fontStyle: msg.whisper ? 'italic' : 'normal',
+                        opacity: chatFocused ? 1 : 0.8,
+                        textShadow: '1px 1px 2px #000'
+                    }}>
+                        {msg.whisper && <span style={{ color: '#9c6bc4' }}>[Whisper] </span>}
+                        <span style={{
+                            color: msg.system ? '#ffcc00' : msg.senderWallet === myWallet ? '#82aaff' : '#c3e88d',
+                            fontWeight: 'bold'
+                        }}>
+                            {msg.sender}:
+                        </span>{' '}
+                        {msg.text}
+                    </div>
+                ))}
+            </div>
+
+            {/* Input */}
+            {chatFocused && (
+                <div style={{ display: 'flex', gap: '0' }}>
+                    <input
+                        ref={inputRef}
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSend()
+                            if (e.key === 'Escape') { setChatFocused(false); setChatInput('') }
+                            e.stopPropagation() // Don't let game handle these keys
+                        }}
+                        placeholder="Type message... (/w name msg)"
+                        style={{
+                            flex: 1, background: 'rgba(0,0,0,0.8)', color: '#fff',
+                            border: '1px solid #555', borderRight: 'none',
+                            padding: '6px 8px', fontSize: '13px', outline: 'none',
+                            borderRadius: '0 0 0 6px', fontFamily: "'VT323', monospace"
+                        }}
+                    />
+                    <button
+                        onClick={handleSend}
+                        style={{
+                            background: '#4a90e2', color: '#fff', border: 'none',
+                            padding: '6px 12px', fontSize: '13px', cursor: 'pointer',
+                            borderRadius: '0 0 6px 0', fontFamily: "'VT323', monospace"
+                        }}
+                    >Send</button>
+                </div>
+            )}
+
+            {!chatFocused && (
+                <div style={{
+                    fontSize: '11px', color: '#888', padding: '2px 6px',
+                    background: 'rgba(0,0,0,0.3)', borderRadius: '0 0 6px 6px',
+                    textAlign: 'center', pointerEvents: 'none'
+                }}>
+                    Press Enter to chat
+                </div>
+            )}
         </div>
     )
 }
@@ -555,19 +748,30 @@ export const UI = () => {
             )}
 
             <div style={{ position: "absolute", top: 20, left: 20, pointerEvents: "auto", display: "flex", flexDirection: "column", gap: "10px", fontFamily: "'VT323', monospace" }}>
-                <div style={{ width: "250px", height: "30px", background: "rgba(0,0,0,0.5)", borderRadius: "15px", border: "2px solid white", overflow: "hidden", position: "relative" }}>
-                    <div style={{
-                        width: `${playerHealth}%`, height: "100%", background: "linear-gradient(90deg, #ff4d4d, #ff0000)",
-                        transition: "width 0.3s ease", boxShadow: "0 0 10px rgba(255,0,0,0.5)"
-                    }} />
-                    <div style={{ position: "absolute", width: "100%", textAlign: "center", top: 4, fontSize: "18px", fontWeight: "bold", textShadow: "1px 1px black" }}>
-                        HP: {playerHealth}
-                    </div>
+                {/* HEARTS ROW — Minecraft style */}
+                <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap', maxWidth: '220px' }}>
+                    {Array.from({ length: 15 }, (_, i) => {
+                        const heartHp = (i + 1) * 2;
+                        const isFull = playerHealth >= heartHp;
+                        const isHalf = !isFull && playerHealth >= heartHp - 1;
+                        return (
+                            <span key={i} style={{ fontSize: '18px', lineHeight: 1, filter: isFull ? 'none' : isHalf ? 'saturate(0.5)' : 'grayscale(1) opacity(0.3)', transition: 'filter 0.3s ease' }}>
+                                {isFull ? '❤️' : isHalf ? '💔' : '🖤'}
+                            </span>
+                        );
+                    })}
                 </div>
 
                 <div style={{ background: "rgba(0,0,0,0.7)", padding: "10px", borderRadius: "8px", border: `2px solid ${REALM_CONFIG[realm].groundColor}`, color: "white" }}>
                     <div style={{ marginBottom: "5px", fontSize: "14px", fontWeight: "bold", color: "#4a90e2" }}>REALM: {realm.toUpperCase()}</div>
+                    <OnlinePlayersCount />
                 </div>
+
+                {/* BOSS HP BAR (top center) */}
+                <BossHpBar />
+
+                {/* CHAT OVERLAY */}
+                <ChatOverlay />
 
                 {/* CROSSHAIR */}
                 {!isInventoryOpen && !isMenuOpen && !dialogue.isOpen && (

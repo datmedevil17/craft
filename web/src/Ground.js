@@ -12,11 +12,9 @@ export const Ground = (props) => {
   const { realm } = useCubeStore()
   const config = REALM_CONFIG[realm]
 
-  // Use static paths
   const grass = useTexture(grassJpg)
   const dirt = useTexture(dirtJpg)
 
-  // Configure texture wrapping
   const texture = realm === "Jungle" ? grass : (realm === "Desert" ? dirt : null)
 
   if (texture) {
@@ -24,7 +22,7 @@ export const Ground = (props) => {
     texture.repeat.set(240, 240)
   }
 
-  const { addCube, blockchainActions, currentBlock } = useCubeStore()
+  const { addCube, blockchainActions, currentBlock, socketActions } = useCubeStore()
 
   return (
     <RigidBody {...props} type="fixed" colliders="cuboid">
@@ -32,13 +30,14 @@ export const Ground = (props) => {
         receiveShadow
         rotation={[-Math.PI / 2, 0, 0]}
         onClick={(e) => {
-          if (e.button === 2) { // Only Right-Click to place a block
+          if (e.button === 2) {
             e.stopPropagation()
             const { x, z } = e.point
-            addCube(Math.floor(x) + 0.5, 0.5, Math.floor(z) + 0.5)
+            const pos = [Math.floor(x) + 0.5, 0.5, Math.floor(z) + 0.5]
+            addCube(pos[0], pos[1], pos[2])
+            socketActions.placeBlock(pos, currentBlock)  // Sync to other players
             blockchainActions.placeBlock(currentBlock)
           }
-          // Left-click: do NOT stopPropagation — let it reach animals/enemies
         }}
       >
         <planeGeometry args={[1000, 1000]} />

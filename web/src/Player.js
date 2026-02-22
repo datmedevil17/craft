@@ -137,7 +137,7 @@ export function Player({ lerp = THREE.MathUtils.lerp }) {
 
     // Void check
     if (playerPos.y < -20) {
-      ref.current.setTranslation({ x: 0, y: 10, z: 0 })
+      ref.current.setTranslation({ x: 0, y: 10, z: 40 })
       ref.current.setLinvel({ x: 0, y: 0, z: 0 })
     }
 
@@ -150,7 +150,7 @@ export function Player({ lerp = THREE.MathUtils.lerp }) {
 
   return (
     <>
-      <RigidBody ref={ref} colliders={false} mass={1} type="dynamic" position={[0, 10, 0]} enabledRotations={[false, false, false]} linearDamping={12}>
+      <RigidBody ref={ref} colliders={false} mass={1} type="dynamic" position={[0, 10, 40]} enabledRotations={[false, false, false]} linearDamping={12}>
         <CapsuleCollider args={[0.75, 0.5]} />
       </RigidBody>
 

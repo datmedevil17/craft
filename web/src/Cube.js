@@ -14,7 +14,7 @@ export const Cubes = () => {
 export function Cube({ position, type, ...props }) {
   const ref = useRef()
   const [hover, set] = useState(null)
-  const { addCube, removeCube, currentTool, blockchainActions, currentBlock, cameraMode } = useCubeStore()
+  const { addCube, removeCube, currentTool, blockchainActions, currentBlock, cameraMode, socketActions } = useCubeStore()
   const [clicks, setClicks] = useState(0)
   const { getRequiredClicks } = require("./miningConfig")
   const requiredClicks = getRequiredClicks(type, currentTool)
@@ -37,6 +37,7 @@ export function Cube({ position, type, ...props }) {
         if (next >= requiredClicks) {
           const [x, y, z] = position
           removeCube(x, y, z)
+          socketActions.removeBlock([x, y, z])  // Sync to other players
         }
         return next
       })
@@ -46,10 +47,12 @@ export function Cube({ position, type, ...props }) {
       if (!currentBlock || !currentBlock.startsWith('Block_')) return;
       const { x, y, z } = ref.current.translation()
       const { x: nx, y: ny, z: nz } = e.face.normal
-      addCube(x + nx, y + ny, z + nz)
+      const newPos = [x + nx, y + ny, z + nz]
+      addCube(newPos[0], newPos[1], newPos[2])
+      socketActions.placeBlock(newPos, currentBlock)  // Sync to other players
       blockchainActions.placeBlock(currentBlock)
     }
-  }, [addCube, removeCube, position, requiredClicks])
+  }, [addCube, removeCube, position, requiredClicks, socketActions, currentBlock, cameraMode, blockchainActions])
 
   const currentScale = 0.5 - (clicks / requiredClicks) * 0.05 // Subtle shrinking as it gets damaged
 
