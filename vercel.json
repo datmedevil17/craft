@@ -1,5 +1,6 @@
 {
-  "buildCommand": "bun run build",
+  "buildCommand": "cd web && bun install && bun run build",
   "installCommand": "bun install",
-  "public": false
+  "outputDirectory": "web/build",
+  "framework": null
 }
