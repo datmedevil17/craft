@@ -92,7 +92,36 @@ export function useMinecraftProgram() {
 
     const sessionWallet = useSessionKeyManager(wallet as any, connection, "devnet");
     const { sessionToken, createSession: sdkCreateSession, isLoading: isSessionLoading, revokeSession } = sessionWallet;
-    const createSession = useCallback(() => sdkCreateSession(PROGRAM_ID), [sdkCreateSession]);
+    const createSession = useCallback(async () => {
+        try {
+            await sdkCreateSession(PROGRAM_ID, undefined, 3000);
+        } catch (err: any) {
+            const txMsg: string = err?.transactionMessage ?? "";
+            const errMsg: string = (err?.message ?? "").toLowerCase();
+            const isStaleAccount =
+                txMsg.includes("0x0") ||
+                errMsg.includes("0x0") ||
+                errMsg.includes("already in use") ||
+                errMsg.includes("already initialized");
+
+            if (isStaleAccount) {
+                console.warn("[Session] Stale session on-chain (0x0). Revoking then retrying...");
+                useCubeStore.getState().addToast("Clearing stale session...");
+                try {
+                    if (revokeSession) await revokeSession();
+                    await new Promise(r => setTimeout(r, 1500));
+                    await sdkCreateSession(PROGRAM_ID, undefined, 3000);
+                    console.log("[Session] Session recreated after revoke.");
+                } catch (retryErr) {
+                    console.error("[Session] Retry after revoke failed:", retryErr);
+                    throw retryErr;
+                }
+            } else {
+                console.error("[Session] Unexpected error:", err);
+                throw err;
+            }
+        }
+    }, [sdkCreateSession, revokeSession]);
 
     // ---- ER Program (Anchor 0.30+) ----
     const erProgram = useMemo(() => {
