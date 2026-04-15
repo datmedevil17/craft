@@ -104,9 +104,10 @@ export function useMinecraftProgram() {
         try {
             await sdkCreateSession(PROGRAM_ID);
         } catch (err: any) {
-            const msg: string = err?.message ?? "";
+            // Check both .message and .transactionMessage — SendTransactionError (Proxy) may put it in either
+            const msg = `${err?.message ?? ""} ${err?.transactionMessage ?? ""}`.toLowerCase();
             // Swallow the "already processed" error — the session was actually created successfully
-            if (msg.toLowerCase().includes("already been processed")) {
+            if (msg.includes("already been processed") || msg.includes("already processed")) {
                 console.warn("[Session] Tx already processed — session likely created successfully, refreshing state.");
                 return;
             }
