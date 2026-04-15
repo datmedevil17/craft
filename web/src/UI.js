@@ -386,13 +386,27 @@ export const UI = () => {
         placeBlock,
         attack,
         killEntity,
-        erGameSession
+        erGameSession,
+        checkDelegation
     } = useMinecraftProgram()
 
     // Onboarding flow state
     const isProfileReady = !!profile
     const isSessionReady = !!sessionToken
     const isDelegated = delegationStatus === "delegated"
+    const isCheckingDelegation = delegationStatus === "checking"
+
+    // Combined handler: create session if missing, then delegate
+    const handleEnterGame = React.useCallback(async () => {
+        try {
+            if (!isSessionReady) {
+                await createSession()
+            }
+            await delegateSession()
+        } catch (err) {
+            console.error("[Enter] Session/Delegation failed:", err)
+        }
+    }, [isSessionReady, createSession, delegateSession])
 
     const [userInput, setUserInput] = React.useState("")
     const [hoveredItem, setHoveredItem] = React.useState(null) // for tooltip
@@ -680,12 +694,13 @@ export const UI = () => {
                 }}>
                     <h2 style={{ color: "#55FF55", marginBottom: "30px" }}>SETTLE GAME SESSION?</h2>
                     <p style={{ fontSize: "12px", textAlign: "center", maxWidth: "500px", lineHeight: "1.6", marginBottom: "40px" }}>
-                        Ending your game move state back to the base layer. This updates your permanent profile stats.
+                        Ending your game moves state back to the base layer. This updates your permanent profile stats.
                     </p>
                     <div style={{ display: "flex", gap: "20px" }}>
                         <button
                             onClick={async () => {
                                 await undelegateSession()
+                                await checkDelegation()
                                 setShowUndelegatePrompt(false)
                             }}
                             disabled={isLoading}
@@ -835,7 +850,19 @@ export const UI = () => {
                         </button>
                     )}
 
-                    {connected && !isProfileReady && (
+                    {/* Checking delegation status */}
+                    {connected && isProfileReady && isCheckingDelegation && (
+                        <div style={{
+                            width: "100%", padding: "18px", background: "rgba(255,255,255,0.1)",
+                            color: "#aaa", border: "1px solid #444", borderRadius: "12px",
+                            fontSize: "12px", textAlign: "center",
+                            fontFamily: "'Press Start 2P', cursive"
+                        }}>
+                            CHECKING STATUS...
+                        </div>
+                    )}
+
+                    {connected && !isProfileReady && !isCheckingDelegation && (
                         <button
                             disabled={isLoading}
                             onClick={initializeProfile}
@@ -852,38 +879,23 @@ export const UI = () => {
                         </button>
                     )}
 
-                    {connected && isProfileReady && !isSessionReady && (
+                    {/* ENTER button: auto-creates session if missing, then delegates */}
+                    {connected && isProfileReady && !isDelegated && !isCheckingDelegation && (
                         <button
-                            disabled={isSessionLoading}
-                            onClick={createSession}
-                            style={{
-                                width: "100%", padding: "18px", background: "#FFB000",
-                                color: "black", border: "none", borderRadius: "12px",
-                                fontSize: "14px", cursor: "pointer", transition: "all 0.2s",
-                                fontFamily: "'Press Start 2P', cursive"
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-                        >
-                            {isSessionLoading ? "CREATING..." : "INIT SESSION"}
-                        </button>
-                    )}
-
-                    {connected && isProfileReady && isSessionReady && (
-                        <button
-                            disabled={isLoading}
-                            onClick={delegateSession}
+                            disabled={isLoading || isSessionLoading || isDelegating}
+                            onClick={handleEnterGame}
                             style={{
                                 width: "100%", padding: "24px", background: "#55FF55",
                                 color: "black", border: "none", borderRadius: "12px",
                                 fontSize: "18px", cursor: "pointer", transition: "all 0.2s",
                                 fontFamily: "'Press Start 2P', cursive", fontWeight: "bold",
-                                boxShadow: "0 0 20px rgba(85,255,85,0.4)"
+                                boxShadow: "0 0 20px rgba(85,255,85,0.4)",
+                                opacity: (isLoading || isSessionLoading || isDelegating) ? 0.6 : 1
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
                             onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                         >
-                            {isLoading ? "DELEGATING..." : "ENTER"}
+                            {isDelegating ? "DELEGATING..." : isSessionLoading ? "CREATING SESSION..." : isLoading ? "WORKING..." : "ENTER"}
                         </button>
                     )}
                 </div>
