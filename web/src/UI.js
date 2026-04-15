@@ -713,7 +713,10 @@ export const UI = () => {
             )
         }
 
-        if (isDelegated) {
+        // Realm picker: only when BOTH delegated AND session key is present.
+        // If delegated but session is missing (cleared from localStorage),
+        // fall through to the main login screen which shows 'Create Session'.
+        if (isDelegated && isSessionReady) {
             return (
                 <div style={{
                     position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
