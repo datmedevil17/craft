@@ -91,7 +91,7 @@ export function useMinecraftProgram() {
         []);
 
     const sessionWallet = useSessionKeyManager(wallet as any, connection, "devnet");
-    const { sessionToken, createSession: sdkCreateSession, isLoading: isSessionLoading, revokeSession } = sessionWallet;
+    const { sessionToken, createSession: sdkCreateSession, isLoading: isSessionLoading, revokeSession, getSessionToken } = sessionWallet;
     const createSession = useCallback(async () => {
         try {
             // 3rd param is expiryInMinutes (max 1440 = 24h). Use 1380 = 23h.
@@ -99,6 +99,23 @@ export function useMinecraftProgram() {
         } catch (err: any) {
             const txMsg: string = err?.transactionMessage ?? "";
             const errMsg: string = (err?.message ?? "").toLowerCase();
+
+            // "Already processed" means the TX succeeded but the SDK threw after confirmation.
+            // Treat as success: the session account exists, just load it.
+            const isAlreadyProcessed =
+                txMsg.includes("already been processed") ||
+                errMsg.includes("already been processed") ||
+                errMsg.includes("already processed");
+
+            if (isAlreadyProcessed) {
+                console.warn("[Session] TX already processed — session was created. Fetching existing session...");
+                try {
+                    if (getSessionToken) await getSessionToken();
+                } catch (_) { /* ignore */ }
+                return; // Treat as success
+            }
+
+            // Stale on-chain account (0x0 / AlreadyInitialized): revoke then retry
             const isStaleAccount =
                 txMsg.includes("0x0") ||
                 errMsg.includes("0x0") ||
@@ -122,7 +139,7 @@ export function useMinecraftProgram() {
                 throw err;
             }
         }
-    }, [sdkCreateSession, revokeSession]);
+    }, [sdkCreateSession, revokeSession, getSessionToken]);
 
     // ---- ER Program (Anchor 0.30+) ----
     const erProgram = useMemo(() => {
