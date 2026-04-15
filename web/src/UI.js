@@ -396,18 +396,6 @@ export const UI = () => {
     const isDelegated = delegationStatus === "delegated"
     const isCheckingDelegation = delegationStatus === "checking"
 
-    // Combined handler: create session if missing, then delegate
-    const handleEnterGame = React.useCallback(async () => {
-        try {
-            if (!isSessionReady) {
-                await createSession()
-            }
-            await delegateSession()
-        } catch (err) {
-            console.error("[Enter] Session/Delegation failed:", err)
-        }
-    }, [isSessionReady, createSession, delegateSession])
-
     const [userInput, setUserInput] = React.useState("")
     const [hoveredItem, setHoveredItem] = React.useState(null) // for tooltip
     const { addToast } = useCubeStore()
@@ -850,7 +838,7 @@ export const UI = () => {
                         </button>
                     )}
 
-                    {/* Checking delegation status */}
+                    {/* Step 2: checking delegation */}
                     {connected && isProfileReady && isCheckingDelegation && (
                         <div style={{
                             width: "100%", padding: "18px", background: "rgba(255,255,255,0.1)",
@@ -879,23 +867,41 @@ export const UI = () => {
                         </button>
                     )}
 
-                    {/* ENTER button: auto-creates session if missing, then delegates */}
-                    {connected && isProfileReady && !isDelegated && !isCheckingDelegation && (
+                    {/* Step 3: Create Session — skipped automatically if session already exists */}
+                    {connected && isProfileReady && !isSessionReady && !isCheckingDelegation && (
                         <button
-                            disabled={isLoading || isSessionLoading || isDelegating}
-                            onClick={handleEnterGame}
+                            disabled={isSessionLoading}
+                            onClick={createSession}
+                            style={{
+                                width: "100%", padding: "18px", background: "#FFB000",
+                                color: "black", border: "none", borderRadius: "12px",
+                                fontSize: "14px", cursor: "pointer", transition: "all 0.2s",
+                                fontFamily: "'Press Start 2P', cursive"
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                        >
+                            {isSessionLoading ? "CREATING SESSION..." : "CREATE SESSION"}
+                        </button>
+                    )}
+
+                    {/* Step 4: Delegate — skipped automatically if already delegated */}
+                    {connected && isProfileReady && isSessionReady && !isDelegated && !isCheckingDelegation && (
+                        <button
+                            disabled={isLoading || isDelegating}
+                            onClick={delegateSession}
                             style={{
                                 width: "100%", padding: "24px", background: "#55FF55",
                                 color: "black", border: "none", borderRadius: "12px",
                                 fontSize: "18px", cursor: "pointer", transition: "all 0.2s",
                                 fontFamily: "'Press Start 2P', cursive", fontWeight: "bold",
                                 boxShadow: "0 0 20px rgba(85,255,85,0.4)",
-                                opacity: (isLoading || isSessionLoading || isDelegating) ? 0.6 : 1
+                                opacity: (isLoading || isDelegating) ? 0.6 : 1
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
                             onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                         >
-                            {isDelegating ? "DELEGATING..." : isSessionLoading ? "CREATING SESSION..." : isLoading ? "WORKING..." : "ENTER"}
+                            {isDelegating ? "DELEGATING..." : isLoading ? "WORKING..." : "DELEGATE"}
                         </button>
                     )}
                 </div>
