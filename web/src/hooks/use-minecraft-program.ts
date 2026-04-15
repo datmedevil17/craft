@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Program, AnchorProvider, BN, setProvider } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
@@ -92,7 +92,29 @@ export function useMinecraftProgram() {
 
     const sessionWallet = useSessionKeyManager(wallet as any, connection, "devnet");
     const { sessionToken, createSession: sdkCreateSession, isLoading: isSessionLoading, revokeSession } = sessionWallet;
-    const createSession = useCallback(() => sdkCreateSession(PROGRAM_ID), [sdkCreateSession]);
+
+    // Guard against duplicate submissions — Solana rejects a tx that was already processed
+    const creatingSessionRef = useRef(false);
+    const createSession = useCallback(async () => {
+        if (creatingSessionRef.current) {
+            console.warn("[Session] createSession already in progress, ignoring duplicate call");
+            return;
+        }
+        creatingSessionRef.current = true;
+        try {
+            await sdkCreateSession(PROGRAM_ID);
+        } catch (err: any) {
+            const msg: string = err?.message ?? "";
+            // Swallow the "already processed" error — the session was actually created successfully
+            if (msg.toLowerCase().includes("already been processed")) {
+                console.warn("[Session] Tx already processed — session likely created successfully, refreshing state.");
+                return;
+            }
+            throw err;
+        } finally {
+            creatingSessionRef.current = false;
+        }
+    }, [sdkCreateSession]);
 
     // ---- ER Program (Anchor 0.30+) ----
     const erProgram = useMemo(() => {

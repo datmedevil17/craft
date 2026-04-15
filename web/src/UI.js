@@ -1309,33 +1309,6 @@ export const UI = () => {
                 <KillCard nft={selectedNFT} onClose={() => setSelectedNFT(null)} />
             )}
 
-            {/* TOAST NOTIFICATIONS (BOTTOM RIGHT) */}
-            <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column-reverse", gap: "10px", pointerEvents: "none" }}>
-                {toasts.map((t) => (
-                    <div key={t.id} style={{
-                        background: "rgba(0,0,0,0.8)", border: "1px solid rgba(85,255,85,0.4)", padding: "12px 20px",
-                        borderRadius: "8px", color: "white", fontFamily: "'Press Start 2P', cursive", fontSize: "10px",
-                        boxShadow: "0 4px 15px rgba(0,0,0,0.5)", animation: "slideInRight 0.3s ease-out", pointerEvents: "auto",
-                        display: "flex", flexDirection: "column", gap: "5px"
-                    }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "20px" }}>
-                            <span style={{ color: "#55ff55" }}>{t.label}{t.hash.length > 40 ? ' TX:' : ':'}</span>
-                            <button onClick={() => removeToast(t.id)} style={{
-                                background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: "12px", padding: 0
-                            }}>✕</button>
-                        </div>
-                        {t.hash.length > 40 ? (
-                            <a href={`https://solscan.io/tx/${t.hash}?cluster=devnet`} target="_blank" rel="noreferrer" style={{
-                                color: "#82aaff", textDecoration: "none"
-                            }}>
-                                {t.hash.slice(0, 8)}...{t.hash.slice(-8)}
-                            </a>
-                        ) : (
-                            <span style={{ color: "#ff8888" }}>{t.hash}</span>
-                        )}
-                    </div>
-                ))}
-            </div>
         </>
     )
 }

@@ -36,7 +36,7 @@ export const Ground = (props) => {
             const pos = [Math.floor(x) + 0.5, 0.5, Math.floor(z) + 0.5]
             addCube(pos[0], pos[1], pos[2])
             socketActions.placeBlock(pos, currentBlock)  // Sync to other players
-            blockchainActions.placeBlock(currentBlock)
+            if (currentBlock) blockchainActions.placeBlock(currentBlock)
           }
         }}
       >

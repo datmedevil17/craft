@@ -152,7 +152,7 @@ export const useCubeStore = create((set) => ({
             tools: config.tools,
             animals: config.animals,
             enemies: config.enemies,
-            currentBlock: null,
+            currentBlock: hotbarSlots.find(s => s?.startsWith('Block_')) ?? config.blocks[0] ?? null,
             currentTool: config.tools[0],
             playerHealth: 40,
             isGameOver: false,
