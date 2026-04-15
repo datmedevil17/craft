@@ -197,33 +197,61 @@ export function useMinecraftProgram() {
     // ---- Actions ----
     const sendErTx = useCallback(async (methodBuilder: any, actionName: string) => {
         if (!erProgram || !wallet.publicKey) throw new Error("Not ready");
+
+        // Session key is REQUIRED for all ER (gasless) transactions.
+        // Never fall back to wallet signing — that would require user approval per tx.
+        const isSessionReady =
+            sessionToken != null &&
+            sessionWallet?.publicKey != null &&
+            typeof sessionWallet?.signTransaction === "function";
+
+        if (!isSessionReady) {
+            const err = `Session key not ready for '${actionName}'. Please initialize a session first.`;
+            console.error(`[ER Tx] ${err}`);
+            useCubeStore.getState().addToast("Session Required", "Please re-init session");
+            throw new Error(err);
+        }
+
+        if (!methodBuilder) throw new Error(`No method builder provided for '${actionName}'`);
+
+        const signerPubkey = sessionWallet.publicKey!;
+        console.log(`[ER Tx] '${actionName}' → signing with session key ${signerPubkey.toBase58().slice(0, 8)}...`);
+
         setIsLoading(true);
         try {
-            const hasSession = sessionToken != null && sessionWallet?.publicKey != null;
-            const signer = hasSession ? sessionWallet.publicKey! : wallet.publicKey;
             let tx = await methodBuilder
                 .accounts({
-                    signer,
-                    sessionToken: hasSession ? sessionToken : null,
-                    meinkraftAccount: meinkraftPubkey
+                    signer: signerPubkey,
+                    sessionToken: sessionToken,
+                    meinkraftAccount: meinkraftPubkey,
                 })
                 .transaction();
 
-            tx.recentBlockhash = (await erConnection.getLatestBlockhash()).blockhash;
-            tx.feePayer = signer;
-            tx = await (hasSession ? sessionWallet.signTransaction!(tx) : wallet.signTransaction!(tx));
+            const { blockhash } = await erConnection.getLatestBlockhash();
+            tx.recentBlockhash = blockhash;
+            tx.feePayer = signerPubkey;
+
+            // Sign with session key — no wallet popup
+            tx = await sessionWallet.signTransaction!(tx);
 
             const txHash = await erConnection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
             await erConnection.confirmTransaction(txHash, "confirmed");
+            console.log(`[ER Tx] '${actionName}' confirmed: ${txHash.slice(0, 12)}...`);
             useCubeStore.getState().addToast(actionName, txHash);
             await fetchErAccount();
             return txHash;
         } catch (err: any) {
-            console.error(`ER Tx Error (${actionName}):`, err);
+            console.error(`[ER Tx] Error in '${actionName}':`, err);
             const msg = err?.message?.toLowerCase() || "";
-            // If the error suggests the session token is expired or unauthorized, clear it
-            if (msg.includes("expire") || msg.includes("session") || msg.includes("signature verification failed") || msg.includes("0xbbf") || msg.includes("unauthorized")) {
-                console.log("[Status] Session appears expired. Revoking...");
+            // Session expired or unauthorized — revoke so UI prompts re-init
+            if (
+                msg.includes("expire") ||
+                msg.includes("session") ||
+                msg.includes("signature verification failed") ||
+                msg.includes("0xbbf") ||
+                msg.includes("unauthorized")
+            ) {
+                console.warn("[ER Tx] Session key expired. Revoking...");
                 useCubeStore.getState().addToast("Session Expired", "Please INIT SESSION again");
                 if (revokeSession) revokeSession();
             }
@@ -232,7 +260,7 @@ export function useMinecraftProgram() {
         } finally {
             setIsLoading(false);
         }
-    }, [erProgram, wallet, sessionToken, sessionWallet, meinkraftPubkey, erConnection, fetchErAccount]);
+    }, [erProgram, wallet, sessionToken, sessionWallet, meinkraftPubkey, erConnection, fetchErAccount, revokeSession]);
 
     const initialize = useCallback(async () => {
         if (!program || !wallet.publicKey) return;
