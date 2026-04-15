@@ -94,7 +94,7 @@ export function useMinecraftProgram() {
     const { sessionToken, createSession: sdkCreateSession, isLoading: isSessionLoading, revokeSession } = sessionWallet;
     const createSession = useCallback(async () => {
         try {
-            await sdkCreateSession(PROGRAM_ID, undefined, 3000);
+            await sdkCreateSession(PROGRAM_ID);
         } catch (err: any) {
             const txMsg: string = err?.transactionMessage ?? "";
             const errMsg: string = (err?.message ?? "").toLowerCase();
@@ -110,7 +110,7 @@ export function useMinecraftProgram() {
                 try {
                     if (revokeSession) await revokeSession();
                     await new Promise(r => setTimeout(r, 1500));
-                    await sdkCreateSession(PROGRAM_ID, undefined, 3000);
+                    await sdkCreateSession(PROGRAM_ID);
                     console.log("[Session] Session recreated after revoke.");
                 } catch (retryErr) {
                     console.error("[Session] Retry after revoke failed:", retryErr);
