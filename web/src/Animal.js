@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useGLTF, useAnimations } from '@react-three/drei'
-import { useFrame, useGraph } from '@react-three/fiber'
+import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { SkeletonUtils } from 'three-stdlib'
@@ -34,8 +34,6 @@ export const Animal = ({ id, type, position: initialPosition, allPositions }) =>
     const scale = config.scale || 0.5
     const speed = config.speed || 2
     const runSpeed = config.runSpeed || 4
-    const attackRange = config.attackRange || 1.8
-    const chaseRange = config.chaseRange || 15
 
     // Choose random target on ground that is NOT in the river
     const getNewTarget = useCallback((currentPos) => {

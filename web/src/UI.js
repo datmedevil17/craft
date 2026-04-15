@@ -5,7 +5,6 @@ import { WalletMultiButton, useWalletModal } from "@solana/wallet-adapter-react-
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useMinecraftProgram, KILL_REWARDS } from "./hooks/use-minecraft-program"
 import { getNPCResponse } from "./aiService"
-import { ENTITY_MINTS } from "./MintConfig"
 import { useSocket } from "./SocketContext"
 
 // Visual display map for every block and tool
@@ -346,28 +345,23 @@ function ChatOverlay() {
 
 
 export const UI = () => {
-    const { connected, publicKey, select, wallets } = useWallet()
+    const { connected, publicKey } = useWallet()
     const { setVisible } = useWalletModal()
     const {
-        currentTool, setTool, tools,
-        currentBlock, setBlock, blocks,
+        setTool, setBlock, blocks,
         dialogue, closeDialogue, setNPCResponse, setDialogueLoading,
         gameStarted, startGame, realm,
-        playerHealth, isGameOver, restartGame,
-        showStatsModal, setShowStatsModal,
+        playerHealth, isGameOver, restartGame, setShowStatsModal,
         showUndelegatePrompt, setShowUndelegatePrompt,
         isInventoryOpen, setInventoryOpen,
-        isMenuOpen, setMenuOpen,
-        cameraMode, setCameraMode,
+        isMenuOpen, setMenuOpen, setCameraMode,
         hotbarSlots, setHotbarSlot,
         selectedHotbarIndex, setSelectedHotbarIndex,
-        inventorySlots, setInventorySlot,
-        dragSource, setDragSource,
+        inventorySlots, setInventorySlot, setDragSource,
         endGame: endGameState,
         blockchainActions,
         isNFTDrawerOpen, setNFTDrawerOpen,
-        selectedNFT, setSelectedNFT,
-        toasts, removeToast
+        selectedNFT, setSelectedNFT
     } = useCubeStore()
 
     const {
@@ -376,7 +370,6 @@ export const UI = () => {
         sessionToken,
         isLoading,
         isSessionLoading,
-        isDelegating,
         initializeProfile,
         createSession,
         delegateSession,
@@ -385,8 +378,7 @@ export const UI = () => {
         endGame,
         placeBlock,
         attack,
-        killEntity,
-        erGameSession
+        killEntity
     } = useMinecraftProgram()
 
     // Onboarding flow state
@@ -395,7 +387,6 @@ export const UI = () => {
     const isDelegated = delegationStatus === "delegated"
 
     const [userInput, setUserInput] = React.useState("")
-    const [hoveredItem, setHoveredItem] = React.useState(null) // for tooltip
     const { addToast } = useCubeStore()
 
     // Auto-transition and feedback logic
@@ -471,11 +462,11 @@ export const UI = () => {
     }, [isDelegated]);
 
     // Smart dispatch: set the active block OR tool based on item type
-    const applyHotbarItem = (item) => {
+    const applyHotbarItem = React.useCallback((item) => {
         if (!item) return;
         if (item.startsWith('Block_')) setBlock(item);
         else setTool(item);
-    };
+    }, [setBlock, setTool]);
 
     // Inventory Toggle and Hotbar Selection
     React.useEffect(() => {
@@ -575,7 +566,7 @@ export const UI = () => {
             window.removeEventListener('keyup', handleKeyUp);
             window.removeEventListener('wheel', handleWheel);
         }
-    }, [gameStarted, isGameOver, dialogue.isOpen, isInventoryOpen, setInventoryOpen, isMenuOpen, setMenuOpen, blocks, selectedHotbarIndex, setSelectedHotbarIndex]);
+    }, [gameStarted, isGameOver, dialogue.isOpen, isInventoryOpen, setInventoryOpen, isMenuOpen, setMenuOpen, blocks, selectedHotbarIndex, setSelectedHotbarIndex, applyHotbarItem, setCameraMode]);
 
     // Helper: handle drop on a hotbar slot
     const handleDropOnHotbar = (hotbarIndex) => {
@@ -644,30 +635,6 @@ export const UI = () => {
             applyHotbarItem(item);
         }
     };
-
-    const setupSteps = [
-        { label: "Connect Wallet", done: connected, current: !connected },
-        { label: "Init Profile", done: isProfileReady, current: connected && !isProfileReady },
-        { label: "Create Session", done: isSessionReady, current: isProfileReady && !isSessionReady },
-        { label: "Delegate", done: isDelegated, current: isSessionReady && !isDelegated }
-    ]
-
-    const handleStepAction = async (step) => {
-        console.log("Step clicked:", step.label)
-        if (step.label === "Connect Wallet") {
-            const solflare = wallets.find(w => w.adapter.name === 'Solflare')
-            if (solflare) {
-                console.log("Selecting Solflare...")
-                select(solflare.adapter.name)
-            } else {
-                console.log("Solflare not found, showing modal...")
-                setVisible(true)
-            }
-        }
-        if (step.label === "Init Profile") await initializeProfile()
-        if (step.label === "Create Session") await createSession()
-        if (step.label === "Delegate") await delegateSession()
-    }
 
     if (!gameStarted) {
         if (showUndelegatePrompt && isDelegated) {
@@ -1166,8 +1133,6 @@ export const UI = () => {
                                         title={item ? item.replace('Block_', '').replace(/_/g, ' ') : ''}
                                         onDragOver={(e) => e.preventDefault()}
                                         onDrop={() => handleDropOnInventory(index)}
-                                        onMouseEnter={() => item && setHoveredItem(item)}
-                                        onMouseLeave={() => setHoveredItem(null)}
                                         onClick={(e) => handleInventoryItemClick(e, index)}
                                         style={{
                                             width: "52px", height: "52px", background: "#8b8b8b",

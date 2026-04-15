@@ -31,7 +31,7 @@ export const Animals = () => {
                 position: pos
             }
         })
-    }, [realmAnimals])
+    }, [realmAnimals, isInRiver])
 
     return (
         <group>

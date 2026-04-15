@@ -1,6 +1,5 @@
 import { useGLTF } from "@react-three/drei"
 import { useCubeStore } from "./useStore"
-import { useMemo } from "react"
 
 /**
  * Renders the currently selected hotbar item in the player's hand.

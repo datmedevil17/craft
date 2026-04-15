@@ -1,6 +1,6 @@
 import * as THREE from "three"
 import * as RAPIER from "@dimforge/rapier3d-compat"
-import { useRef, useMemo, useEffect } from "react"
+import { useRef, useMemo, useEffect, useCallback } from "react"
 import { useFrame } from "@react-three/fiber"
 import { useKeyboardControls, useGLTF, useAnimations } from "@react-three/drei"
 import { CapsuleCollider, RigidBody, useRapier } from "@react-three/rapier"
@@ -38,20 +38,20 @@ function PlayerBody({ rigidBodyRef }) {
   }, [names])
 
   // Find animation by name patterns
-  const findAnim = (patterns) => {
+  const findAnim = useCallback((patterns) => {
     for (const p of patterns) {
       if (actions[p]) return actions[p]
       const found = names.find(n => n.toLowerCase().includes(p.toLowerCase()))
       if (found && actions[found]) return actions[found]
     }
     return null
-  }
+  }, [actions, names])
 
   // Play idle on start
   useEffect(() => {
     const idle = findAnim(['Idle', 'idle']) || Object.values(actions)[0]
     if (idle) idle.reset().fadeIn(0.2).play()
-  }, [actions])
+  }, [actions, findAnim])
 
   // Move + rotate + animate based on velocity
   useFrame((state) => {

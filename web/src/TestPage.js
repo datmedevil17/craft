@@ -1,8 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useMinecraftProgram } from './hooks/use-minecraft-program';
-import { useCubeStore } from './useStore';
 
 export const TestPage = () => {
     const wallet = useWallet();
@@ -12,7 +11,6 @@ export const TestPage = () => {
         delegationStatus,
         sessionToken,
         isLoading,
-        isSessionLoading,
         initialize,
         delegateSession,
         enterGame,
@@ -166,4 +164,3 @@ const labelStyle = { fontSize: '10px', opacity: 0.5, textTransform: 'uppercase' 
 const valueStyle = { fontSize: '13px', fontWeight: 'bold', marginTop: '4px', wordBreak: 'break-all' };
 const buttonGridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' };
 const btnStyle = { padding: '10px', background: '#444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' };
-const btnActionStyle = { padding: '10px', background: '#4a90e2', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' };

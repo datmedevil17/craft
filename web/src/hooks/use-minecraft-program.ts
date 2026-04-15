@@ -208,7 +208,7 @@ export function useMinecraftProgram() {
             checkDelegation(info.owner);
         }, "confirmed");
         return () => { connection.removeAccountChangeListener(sub); };
-    }, [program, meinkraftPubkey, connection]);
+    }, [program, meinkraftPubkey, connection, fetchAccount, checkDelegation]);
 
     useEffect(() => {
         if (!erProgram || !meinkraftPubkey || delegationStatus !== "delegated") return;
@@ -254,7 +254,7 @@ export function useMinecraftProgram() {
         } finally {
             setIsLoading(false);
         }
-    }, [erProgram, wallet, sessionToken, sessionWallet, meinkraftPubkey, erConnection, fetchErAccount]);
+    }, [erProgram, wallet, sessionToken, sessionWallet, meinkraftPubkey, erConnection, fetchErAccount, revokeSession]);
 
     const initialize = useCallback(async () => {
         if (!program || !wallet.publicKey) return;

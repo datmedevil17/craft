@@ -1,4 +1,4 @@
-export default {
+const IDL = {
   "address": "72WYk7b352n3SFb3k1qGmPnKDY2dUvr5rgK55RNa14Yt",
   "metadata": {
     "name": "meinkraft",
@@ -698,3 +698,5 @@ export default {
     }
   ]
 }
+
+export default IDL;

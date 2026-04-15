@@ -39,7 +39,7 @@ export const Enemies = () => {
             }
         }
         return instances
-    }, [enemies])
+    }, [enemies, isInRiver])
 
     return (
         <group>

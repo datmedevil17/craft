@@ -43,7 +43,7 @@ export default function Boss3D() {
             setDefeatMsg(null)
             prevAlive.current = true
         }
-    }, [bossState?.alive, bossState?.type])
+    }, [bossState?.alive, bossState?.type, bossState])
 
     return (
         <>

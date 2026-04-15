@@ -1,4 +1,4 @@
-import React, { Suspense, useRef, useEffect } from "react"
+import React, { Suspense, useEffect } from "react"
 import { Canvas } from "@react-three/fiber"
 import { Sky, PointerLockControls, KeyboardControls } from "@react-three/drei"
 import { Physics } from "@react-three/rapier"
