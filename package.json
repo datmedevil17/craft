@@ -4,6 +4,7 @@
   "scripts": {
     "frontend:dev": "cd app && bun run dev",
     "frontend:build": "cd app && bun run build",
+    "build": "cd web && bun install && bun run build",
     "program:build": "./scripts/anchor-build.sh",
     "program:test": "sh ./scripts/anchor-test.sh",
     "program:deploy": "sh ./scripts/anchor-deploy.sh",
