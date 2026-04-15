@@ -1,0 +1,18 @@
+{
+  "files": {
+    "main.css": "/static/css/main.a1f26c94.css",
+    "main.js": "/static/js/main.96c066a7.js",
+    "static/js/939.1062e844.chunk.js": "/static/js/939.1062e844.chunk.js",
+    "static/js/680.73235bba.chunk.js": "/static/js/680.73235bba.chunk.js",
+    "static/media/minecraft.ttf": "/static/media/minecraft.cd1235551b5f89f4710f.ttf",
+    "index.html": "/index.html",
+    "main.a1f26c94.css.map": "/static/css/main.a1f26c94.css.map",
+    "main.96c066a7.js.map": "/static/js/main.96c066a7.js.map",
+    "939.1062e844.chunk.js.map": "/static/js/939.1062e844.chunk.js.map",
+    "680.73235bba.chunk.js.map": "/static/js/680.73235bba.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.a1f26c94.css",
+    "static/js/main.96c066a7.js"
+  ]
+}
